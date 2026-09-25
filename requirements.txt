@@ -1,0 +1,6 @@
+faster-whisper
+opencv-python
+pydantic
+python-dotenv
+pytest
+
