@@ -5,3 +5,9 @@ class TranscriptSegment (BaseModel):
     end:float
     text:str
     
+class VisualMetadata(BaseModel):
+    timestamp:float 
+    image_path: str
+    text: str 
+    confidence: float | None= None
+    

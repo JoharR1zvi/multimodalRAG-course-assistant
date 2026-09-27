@@ -20,6 +20,7 @@ ENV/
 # Environment variables / secrets
 .env
 .env.*
+!.env.example
 
 # Data
 data/raw/*

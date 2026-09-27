@@ -29,8 +29,8 @@ class KeyframeExtractor:
         changed_fraction = (diff > self.diff_threshold).mean()
         return changed_fraction
 
-    def extract(self, video_path: Path, output_dir: Path, interval_seconds: float = 5.0) -> None:
-        if output_dir.exists() and any(output_dir.iterdir()):
+    def extract(self, video_path: Path, output_dir: Path, *, force : bool=False , interval_seconds: float = 5.0) -> None:
+        if output_dir.exists() and any(output_dir.iterdir()) and not force:
             return
         output_dir.mkdir(parents=True, exist_ok=True)
 

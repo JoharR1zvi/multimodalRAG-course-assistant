@@ -3,10 +3,10 @@ from src.schemas.knowledge_object import TranscriptSegment
 from pathlib import Path
 import json
 
-def transcribe(audio_path: Path, transcript_path: Path) -> None:
+def transcribe(audio_path: Path, transcript_path: Path,*,force:bool=False) -> None:
 
     results = []
-    if transcript_path.exists():
+    if transcript_path.exists() and not force:
         return
 
     model = WhisperModel("small", device="cuda", compute_type="float16")

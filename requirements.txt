@@ -3,4 +3,5 @@ opencv-python
 pydantic
 python-dotenv
 pytest
+pytesseract
 

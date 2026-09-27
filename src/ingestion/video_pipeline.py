@@ -4,8 +4,8 @@
 import subprocess 
 from pathlib import Path
 
-def extract_audio(video_path : Path , audio_path : Path) -> None:
-    if audio_path.exists():
+def extract_audio(video_path : Path , audio_path : Path,*,force:bool=False) -> None:
+    if audio_path.exists() and not force:
         return
     audio_path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run([
