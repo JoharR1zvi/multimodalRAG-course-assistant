@@ -4,4 +4,5 @@ pydantic
 python-dotenv
 pytest
 pytesseract
+google-genai
 

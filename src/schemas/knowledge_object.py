@@ -10,4 +10,6 @@ class VisualMetadata(BaseModel):
     image_path: str
     text: str 
     confidence: float | None= None
+    description: str | None = None
+
     
