@@ -21,10 +21,11 @@ from src.processing.speech import transcribe
 from src.processing.keyframes import KeyframeExtractor
 from src.processing.ocr import extract_text
 from src.processing.vision import describe_images
+from src.processing.ocr_clean import clean_ocr_text
 from src.processing.alignment import align
 from src.processing.knowledge import build_knowledge_objects
 
-from src.lecture_settings import load_keyframe_settings
+from src.lecture_settings import load_lecture_settings
 from src.config import DELETE_AUDIO_AFTER_TRANSCRIPT
 
 
@@ -32,7 +33,7 @@ RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 
 # The stage names you are allowed to pass to --force, in pipeline order
-STAGE_NAMES = ["audio", "transcript", "keyframes", "ocr", "vision", "align", "knowledge"]
+STAGE_NAMES = ["audio", "transcript", "keyframes", "ocr", "vision", "clean", "align", "knowledge"]
 
 # File types we accept as a lecture video
 VIDEO_EXTENSIONS = [".mp4", ".mkv", ".mov", ".avi", ".webm"]
@@ -84,7 +85,7 @@ def run_stage(stage_name: str, timings: list, stage_function, *args, **kwargs) -
 
 
 def process_lecture(lecture_name: str, force_stages: list) -> list:
-    # Runs all 7 stages for one lecture. Returns the list of (stage_name, seconds) timings.
+    # Runs all 8 stages for one lecture. Returns the list of (stage_name, seconds) timings.
 
     video_path = find_video(lecture_name)
     out_dir = PROCESSED_DIR / lecture_name
@@ -92,19 +93,19 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
     print(f"\n##### Processing {lecture_name} (video: {video_path.name}) #####")
     # Load the per-lecture settings FIRST, so a typo in settings.json fails
     # immediately instead of after the slow transcription stage
-    keyframe_settings = load_keyframe_settings(RAW_DIR / lecture_name)
+    lecture_settings = load_lecture_settings(RAW_DIR / lecture_name)
+    keyframe_settings = lecture_settings["keyframes"]
+    ocr_clean_settings = lecture_settings["ocr_clean"]
 
-
-    # Warn about a costly combination: forcing OCR recreates visual_metadata.json,
-    # which wipes every Gemini description, so vision then has to call Gemini for all keyframes again
-    if "ocr" in force_stages and "vision" not in force_stages:
-        print("NOTE: --force ocr wipes the Gemini descriptions, so vision will re-describe every keyframe.")
+    # (Redoing OCR with --force ocr keeps the Gemini results already in visual_metadata.json,
+    # so it no longer costs any API calls. The OCR cleanup is redone automatically after it.)
 
     # All the file paths, in one place
     audio_path = out_dir / "audio.wav"
     transcript_path = out_dir / "transcript.json"
     keyframes_dir = out_dir / "keyframes"
     visual_metadata_path = out_dir / "visual_metadata.json"
+    junk_terms_path = out_dir / "junk_terms.json"
     alignment_path = out_dir / "alignment.json"
     knowledge_path = out_dir / "knowledge_objects.json"
 
@@ -181,14 +182,23 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
         force=("vision" in force_stages),
     )
 
-    # Stage 6: match each speech segment to the slide showing at that moment
+    # Stage 6: clean the raw OCR text (interface words + low-confidence junk) into a NEW
+    # field, cleaned_text, in visual_metadata.json. Raw OCR stays untouched. One Gemini
+    # request per lecture, and its answer is saved in junk_terms.json
+    run_stage(
+        "clean", timings, clean_ocr_text,
+        visual_metadata_path, junk_terms_path, ocr_clean_settings,
+        force=("clean" in force_stages),
+    )
+
+    # Stage 7: match each speech segment to the slide showing at that moment
     run_stage(
         "align", timings, align,
         transcript_path, visual_metadata_path, alignment_path,
         force=("align" in force_stages),
     )
 
-    # Stage 7: merge everything into one knowledge object per slide
+    # Stage 8: merge everything into one knowledge object per slide
     run_stage(
         "knowledge", timings, build_knowledge_objects,
         alignment_path, visual_metadata_path, knowledge_path,

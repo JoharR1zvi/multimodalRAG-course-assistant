@@ -22,6 +22,22 @@ GEMINI_REQUESTS_PER_MINUTE = int(os.environ.get("GEMINI_REQUESTS_PER_MINUTE", "1
 # Put DELETE_AUDIO_AFTER_TRANSCRIPT=false in .env to keep it.
 DELETE_AUDIO_AFTER_TRANSCRIPT = os.environ.get("DELETE_AUDIO_AFTER_TRANSCRIPT", "true").strip().lower() != "false"
 
+# --- OCR cleanup defaults (ocr_clean.py) ---
+
+# Drop OCR words Tesseract is less sure about than this (0 to 1). Garbage like "oP" or "sso"
+# scores 0 to 0.3, real slide words score 0.9+. But real CODE can score 0.4 to 0.6
+# (import, hello.py), so the default is low. Can be raised per lecture in settings.json.
+OCR_MIN_WORD_CONFIDENCE = 0.30
+
+# A word is a "junk candidate" if it appears on at least this share of a lecture's keyframes
+# (and on at least OCR_JUNK_MIN_SLIDES of them). The LLM then decides which candidates are
+# software interface text and which are ordinary words.
+OCR_JUNK_MIN_SLIDE_SHARE = 0.25
+OCR_JUNK_MIN_SLIDES = 5
+
+# Never send more than this many candidate words to the LLM
+OCR_JUNK_MAX_CANDIDATES = 80
+
 # --- Keyframe extraction defaults (tuned on lecture_01; re-tune per lecture type) ---
 
 # How much ONE pixel must change (0-255) to count as "changed"

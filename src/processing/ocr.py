@@ -22,6 +22,11 @@ def _parse_timestamp(image_path: Path) -> float:
     return float(number_text)
 
 
+# Fields written by the vision stage (vision.py). When OCR is redone, these are copied over
+# from the old file, so redoing OCR does NOT throw away the paid Gemini results.
+VISION_FIELDS = ["description", "content_type", "title", "slide_number", "clean_text"]
+
+
 def extract_text(keyframes_dir: Path, output_path: Path, *, force: bool = False) -> None:
 
     # Stop if the output already exists
@@ -30,6 +35,16 @@ def extract_text(keyframes_dir: Path, output_path: Path, *, force: bool = False)
             return
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # If we are REDOING OCR, remember what the vision stage already stored, keyed by timestamp
+    old_entries_by_timestamp = {}
+
+    if output_path.exists():
+        with open(output_path, encoding="utf-8") as f:
+            old_data = json.load(f)
+
+        for old_entry in old_data:
+            old_entries_by_timestamp[old_entry["timestamp"]] = old_entry
 
     # Find all the keyframe images and sort them by timestamp
     image_paths = list(keyframes_dir.glob("*.jpg"))
@@ -46,7 +61,8 @@ def extract_text(keyframes_dir: Path, output_path: Path, *, force: bool = False)
         data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
 
         words = []
-        confidences = []
+        confidences = []              # only the real numbers, used for the average
+        word_confidences = []         # one number per word, same order as `words`, 0 to 1
 
         for i in range(len(data["text"])):
             word = data["text"][i]
@@ -58,9 +74,12 @@ def extract_text(keyframes_dir: Path, output_path: Path, *, force: bool = False)
 
             words.append(word)
 
-            # A confidence of -1 means "no confidence info", so ignore those
+            # A confidence of -1 means "no confidence info", so ignore those in the average
             if confidence >= 0:
                 confidences.append(confidence)
+                word_confidences.append(confidence / 100.0)
+            else:
+                word_confidences.append(-1.0)
 
         # Average confidence, scaled from 0-100 to 0-1. None if we have no numbers
         if len(confidences) > 0:
@@ -73,7 +92,18 @@ def extract_text(keyframes_dir: Path, output_path: Path, *, force: bool = False)
             image_path=str(image_path),
             text="\n".join(words),
             confidence=average_confidence,
+            word_confidences=word_confidences,
         )
+
+        # Copy the vision results over from the old file, if this keyframe was already described.
+        # (cleaned_text is NOT copied: the OCR text may have changed, so it must be cleaned again.)
+        if timestamp in old_entries_by_timestamp:
+            old_entry = old_entries_by_timestamp[timestamp]
+
+            for field_name in VISION_FIELDS:
+                if field_name in old_entry:
+                    setattr(metadata, field_name, old_entry[field_name])
+
         results.append(metadata)
 
         print(f"[{timestamp:.2f}s] {image_path.name}: {len(words)} lines, confidence={average_confidence}")

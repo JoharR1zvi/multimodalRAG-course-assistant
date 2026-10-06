@@ -36,6 +36,12 @@ class SlideAnalysis(BaseModel):
     clean_text: str             # all the teaching text on screen, without menus/toolbars
 
 
+class JunkTermsAnswer(BaseModel):
+    # The form Gemini fills in when asked which frequent OCR words are software interface text
+    # (used by ocr_clean.py)
+    interface_words: list[str]
+
+
 class VisualMetadata(BaseModel):
     # One keyframe (slide), from ocr.py and vision.py
     timestamp: float
@@ -50,6 +56,11 @@ class VisualMetadata(BaseModel):
     title: str = ""                      # slide title according to Gemini
     slide_number: int | None = None      # slide/page number if Gemini could see one
     clean_text: str = ""                 # Gemini's version of the slide text (kept next to the OCR text to compare)
+
+    # The fields below are filled by ocr.py and ocr_clean.py (OCR cleanup).
+    # `text` above is never changed, so the raw OCR stays available for comparison.
+    word_confidences: list[float] = []   # one number per word in `text` (same order), 0 to 1, -1 = none given
+    cleaned_text: str | None = None      # OCR text after removing interface words and low-confidence junk (None = not done yet)
 
 
 class AlignedSegment(BaseModel):
