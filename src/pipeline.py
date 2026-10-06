@@ -24,6 +24,9 @@ from src.processing.vision import describe_images
 from src.processing.alignment import align
 from src.processing.knowledge import build_knowledge_objects
 
+from src.lecture_settings import load_keyframe_settings
+from src.config import DELETE_AUDIO_AFTER_TRANSCRIPT
+
 
 RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
@@ -87,6 +90,10 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
     out_dir = PROCESSED_DIR / lecture_name
 
     print(f"\n##### Processing {lecture_name} (video: {video_path.name}) #####")
+    # Load the per-lecture settings FIRST, so a typo in settings.json fails
+    # immediately instead of after the slow transcription stage
+    keyframe_settings = load_keyframe_settings(RAW_DIR / lecture_name)
+
 
     # Warn about a costly combination: forcing OCR recreates visual_metadata.json,
     # which wipes every Gemini description, so vision then has to call Gemini for all keyframes again
@@ -103,12 +110,31 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
 
     timings = []
 
+    # The audio file only exists to make the transcript. So when transcript.json is already
+    # there, we do not need the audio at all, unless someone forces audio or transcript.
+    transcript_exists = transcript_path.exists()
+
+    audio_needed = False
+
+    if not transcript_exists:
+        audio_needed = True
+
+    if "transcript" in force_stages:
+        audio_needed = True
+
+    if "audio" in force_stages:
+        audio_needed = True
+
     # Stage 1: video -> audio
-    run_stage(
-        "audio", timings, extract_audio,
-        video_path, audio_path,
-        force=("audio" in force_stages),
-    )
+    if audio_needed:
+        run_stage(
+            "audio", timings, extract_audio,
+            video_path, audio_path,
+            force=("audio" in force_stages),
+        )
+    else:
+        print("\n=== audio ===")
+        print("--- skipped: transcript.json already exists, so the audio file is not needed")
 
     # Stage 2: audio -> transcript (the slowest stage, uses the GPU)
     run_stage(
@@ -117,14 +143,28 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
         force=("transcript" in force_stages),
     )
 
-    # Stage 3: video -> keyframes. KeyframeExtractor is a class, so make one first,
-    # then hand its .extract method to run_stage
-    extractor = KeyframeExtractor()
+    # The audio file is big and can be recreated from the video, so remove it
+    # as soon as the transcript exists (can be switched off in config / .env)
+    if DELETE_AUDIO_AFTER_TRANSCRIPT:
+        if transcript_path.exists() and audio_path.exists():
+            audio_size_mb = audio_path.stat().st_size / (1024 * 1024)
+            audio_path.unlink()
+            print(f"Deleted {audio_path.name} ({audio_size_mb:.0f} MB). The transcript is done; the audio can be recreated from the video.")
+
+    # Stage 3: video -> keyframes. The settings (defaults from config.py + optional
+    # settings.json) were already loaded at the top of this function.
+    extractor = KeyframeExtractor(
+        diff_threshold=keyframe_settings["diff_threshold"],
+        change_area_threshold=keyframe_settings["change_area_threshold"],
+        max_gap_seconds=keyframe_settings["max_gap_seconds"],
+    )
     run_stage(
         "keyframes", timings, extractor.extract,
         video_path, keyframes_dir,
         force=("keyframes" in force_stages),
+        interval_seconds=keyframe_settings["interval_seconds"],
     )
+
 
     # Stage 4: keyframes -> OCR text
     run_stage(

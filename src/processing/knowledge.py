@@ -111,7 +111,13 @@ def build_knowledge_objects(
         else:
             slide_description = keyframe.description
 
-        # 3d. Build the object (pydantic checks every field has the right type)
+        # 3d. content_type can be None (vision not done for this slide) - the schema needs a string
+        if keyframe.content_type is None:
+            content_type = ""
+        else:
+            content_type = keyframe.content_type
+
+        # 3e. Build the object (pydantic checks every field has the right type)
         knowledge_object = KnowledgeObject(
             lecture_id=lecture_id,
             start_timestamp=keyframe.timestamp,
@@ -120,6 +126,9 @@ def build_knowledge_objects(
             slide_text=keyframe.text,
             slide_description=slide_description,
             image_path=keyframe.image_path,
+            content_type=content_type,
+            title=keyframe.title,
+            slide_number=keyframe.slide_number,
         )
 
         knowledge_objects.append(knowledge_object)

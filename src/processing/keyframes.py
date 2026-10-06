@@ -2,15 +2,23 @@
 
 import cv2
 from pathlib import Path
+from src.config import (
+    KEYFRAME_DIFF_THRESHOLD,
+    KEYFRAME_CHANGE_AREA_THRESHOLD,
+    KEYFRAME_MAX_GAP_SECONDS,
+    KEYFRAME_INTERVAL_SECONDS,
+)
+
 
 
 class KeyframeExtractor:
 
     def __init__(
         self,
-        diff_threshold: float = 40.0,
-        change_area_threshold: float = 0.05,
-        max_gap_seconds: float = 180.0,
+        diff_threshold: float = KEYFRAME_DIFF_THRESHOLD,
+        change_area_threshold: float = KEYFRAME_CHANGE_AREA_THRESHOLD,
+        max_gap_seconds: float = KEYFRAME_MAX_GAP_SECONDS,
+
     ):
         # How much ONE pixel must change (0-255) to count as "changed"
         self.diff_threshold = diff_threshold
@@ -65,7 +73,7 @@ class KeyframeExtractor:
         output_dir: Path,
         *,
         force: bool = False,
-        interval_seconds: float = 5.0,
+        interval_seconds: float = KEYFRAME_INTERVAL_SECONDS,
     ) -> None:
 
         # Stop if the folder already has keyframes in it
