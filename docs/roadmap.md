@@ -4,17 +4,17 @@ Last updated: 2026-10-06.
 
 ## Where things stand
 
-Phase 1 (one lecture video into structured, timestamped knowledge) works end to end on the first test lecture. One command runs all seven stages:
+**Phase 1 is complete (2026-10-06).** One lecture video becomes structured, timestamped knowledge, and it has been run on three lectures of two kinds (annotated slides with a webcam overlay, and a screen recording of live coding). One command runs all eight stages:
 
 ```
 python -m src.pipeline lecture_01
 ```
 
-Verified on that lecture: 64 knowledge objects, each slide's end time equals the next slide's start, and no speech is lost between the transcript (11,194 words) and the knowledge objects (11,194 words).
+A second command, `python -m src.verify --all`, is the Phase 1 exit check. It passes on all three lectures: every file is complete and agrees with the others, each slide's end time equals the next slide's start, no speech is lost between the transcript and the knowledge objects, and every piece of speech lies on a slide. Details in decision 18.
 
 ## Before Phase 2: checklist
 
-Each step is small and checked against the first lecture before moving on.
+Each step was small and checked against the first lecture before moving on. All nine are done.
 
 1. **Keyframe thresholds into config, with a per-lecture override.** *Done (2026-10-06).* Defaults live in `config.py`; an optional `settings.json` next to a lecture's video overrides them. Re-extracting into a scratch folder gave the same 64 filenames. See decision 13.
 2. **Layout-agnostic vision prompt with structured output** (`content_type`, `title`, `description`, `slide_number`, clean slide text). *Done (2026-10-06), applied to the first lecture.* No earlier diagram lost, text-only slides no longer get descriptions, nothing failed. Also added a request-rate limiter and worker threads. See decision 14.
@@ -22,9 +22,13 @@ Each step is small and checked against the first lecture before moving on.
 4. **Process a second lecture that looks different from the first**: a code screencast, then a clean slide-deck recording. *Partly done (2026-10-06).* Lecture 2 (same style) and lecture 3 (a public code screencast) both ran end to end, and lecture 3 needed its own settings file. See decision 17. Not yet tried: a clean slide-deck recording without annotations or a webcam.
 5. **Real timings**, then speedups where the numbers justify them. *Timings done (2026-10-06), see decision 17.* Vision (quota-limited) and speech recognition are about 85% of the time. Remaining speed ideas are in "Speed work".
 6. **OCR junk cleanup layers.** *Done (2026-10-06).* A new `clean` stage writes `cleaned_text` next to the raw OCR text, so raw OCR, cleaned OCR and the vision model's text can be compared fairly at retrieval time (decisions 11 and 15). Also fixed the label for camera shots in the code lecture.
-7. **First automated tests**: `align`, the grouping logic in `knowledge.py`, and `compute_difference`, on small hand-made data. *Done (2026-10-06).* 43 tests run in about 3 seconds with `python -m pytest`, with no video and no API calls. They also cover the OCR cleaning functions and the settings loader. To check that the tests can fail, I broke three small things on purpose (an off-by-one at the moment a slide appears, a cutoff comparison, a missing `.strip()`), and each break was caught by the matching test. Not covered, because they need a video, Tesseract or the API: speech, keyframe extraction end to end, OCR, the vision step and the pipeline runner.
-8. **Documentation pass** and publishing of the public docs.
-9. **Phase 1 exit check** on both lectures. Then Phase 2 opens.
+7. **First automated tests**: `align`, the grouping logic in `knowledge.py`, and `compute_difference`, on small hand-made data. *Done (2026-10-06).* 65 tests (43 at first, 22 more for the exit check in step 9) run in about 3 seconds with `python -m pytest`, with no video and no API calls. They also cover the OCR cleaning functions and the settings loader. To check that the tests can fail, I broke three small things on purpose (an off-by-one at the moment a slide appears, a cutoff comparison, a missing `.strip()`), and each break was caught by the matching test. Not covered, because they need a video, Tesseract or the API: speech, keyframe extraction end to end, OCR, the vision step and the pipeline runner.
+8. **Documentation pass** and publishing of the public docs. *Done (2026-10-06).* README, MIT license and these notes are public.
+9. **Phase 1 exit check.** *Done (2026-10-06).* `python -m src.verify` checks a processed lecture without any video, GPU or API, and it passes on all three lectures (decision 18). Phase 2 can open.
+
+## Not covered by Phase 1
+
+A clean slide-deck recording without annotations or a webcam has not been tried yet, and PDFs and PowerPoint files as course material are not processed. Neither blocks Phase 2.
 
 ## Target video types
 

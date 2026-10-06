@@ -6,7 +6,7 @@ I'm building it one stage at a time and writing down why I made each choice. The
 
 ## Status
 
-**Phase 1 works: a lecture video becomes structured, timestamped knowledge.** It has been run on three lectures of two different kinds (annotated slides with a webcam overlay, and a screen recording of live coding), and in each one every second of speech is matched to the slide on screen and no speech is lost.
+**Phase 1 is complete: a lecture video becomes structured, timestamped knowledge.** It has been run on three lectures of two different kinds (annotated slides with a webcam overlay, and a screen recording of live coding). An exit check, `python -m src.verify --all`, passes on all three: every piece of speech is matched to the slide on screen, and no speech is lost.
 
 **Phase 2 is planned, not started:** chunking, embeddings, a vector database, retrieval with an evaluation set, and cited answers. The design is in [`docs/phase2-plan.md`](docs/phase2-plan.md).
 
@@ -63,6 +63,13 @@ python -m src.pipeline lecture_01 --force vision   # redo a stage
 
 Results appear in `data/processed/<lecture_name>/`, and the main one is `knowledge_objects.json`. Finished stages are skipped, so running again is quick.
 
+To check a finished lecture, or look up what was on screen and said at any second:
+
+```
+python -m src.verify lecture_01                # is everything complete and consistent?
+python -m src.verify lecture_01 --at 1420      # what was shown and said at 23:40?
+```
+
 A lecture can have its own settings in an optional `data/raw/<lecture_name>/settings.json` (for example, a code screencast needs different slide-change settings than a slide deck). See [`docs/architecture.md`](docs/architecture.md).
 
 ## Tests
@@ -71,7 +78,7 @@ A lecture can have its own settings in an optional `data/raw/<lecture_name>/sett
 python -m pytest
 ```
 
-43 tests run in about 3 seconds, with no video and no API calls.
+65 tests run in about 3 seconds, with no video and no API calls.
 
 ## Repository layout
 
@@ -80,6 +87,7 @@ src/
   pipeline.py          runs all stages for one lecture or all lectures
   config.py            settings and defaults
   lecture_settings.py  per-lecture settings.json
+  verify.py            the Phase 1 exit check
   ingestion/           audio extraction
   processing/          speech, keyframes, OCR, vision, cleanup, alignment, knowledge objects
   schemas/             the data shapes passed between stages

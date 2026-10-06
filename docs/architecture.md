@@ -2,7 +2,7 @@
 
 These are my notes on how Phase 1 works: what each stage does, how it does it, and why I built it that way. The reasoning behind the bigger choices, with numbers, is in [decisions.md](decisions.md). What is planned next is in [roadmap.md](roadmap.md) and [phase2-plan.md](phase2-plan.md).
 
-Last updated: 2026-10-06.
+Last updated: 2026-10-06 (Phase 1 complete).
 
 ## What it does
 
@@ -152,9 +152,17 @@ Known gap: forcing an early stage does not automatically redo later ones. After 
 
 I decided against Celery: it only runs more jobs at once, the slow stage is bound by one GPU, the API stage is a network wait that a thread pool handles, and it is poorly supported on Windows. Reasoning in [decision 8](decisions.md).
 
+## The exit check (`src/verify.py`)
+
+`python -m src.verify lecture_01` (or `--all`) checks that a processed lecture is complete and consistent. It reads only the files in `data/processed/<lecture>/`, so it needs no video, GPU or API key, and it never changes anything. It checks that every file exists and has the right shape, the vision and cleanup stages finished for every keyframe, each slide ends exactly when the next one starts, the word count in the knowledge objects equals the word count in the transcript, and every piece of speech lies on exactly one slide that `alignment.json` agrees with. Anything that is not broken but worth a look (slides nobody spoke during, speech before the first slide) is a warning, not a failure.
+
+`python -m src.verify lecture_01 --at 1420` shows what Phase 1 promises: the slide on screen at that second (type, title, slide number, image, description) and the speech around it.
+
+It passes on all three lectures. It checks completeness and consistency, not quality: it cannot tell whether Whisper heard a word correctly or whether a description is right. Results and the way I checked that it can fail are in [decision 18](decisions.md).
+
 ## Tests
 
-`python -m pytest` runs 43 tests in about 3 seconds, with no video and no API. They cover `compute_difference`, `align`, the grouping in `build_knowledge_objects`, the OCR cleaning functions and the settings loader, using tiny hand-made data. A fake Gemini key is set before anything is imported, so a test can never spend quota. To check that the tests can fail, I broke three things on purpose (an off-by-one in `align`, a cutoff comparison, a missing `.strip()`), and each break was caught by the matching test. Speech, keyframe extraction end to end, OCR, the vision stage and the runner are not covered, because they need a video, Tesseract or the API.
+`python -m pytest` runs 65 tests in about 3 seconds, with no video and no API. They cover `compute_difference`, `align`, the grouping in `build_knowledge_objects`, the OCR cleaning functions, the settings loader and the exit check, using tiny hand-made data. A fake Gemini key is set before anything is imported, so a test can never spend quota. To check that the tests can fail, I broke three things on purpose (an off-by-one in `align`, a cutoff comparison, a missing `.strip()`), and each break was caught by the matching test. Speech, keyframe extraction end to end, OCR, the vision stage and the runner are not covered by the tests, because they need a video, Tesseract or the API. The exit check covers their output on real lectures instead.
 
 ## Results on three lectures
 

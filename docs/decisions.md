@@ -264,3 +264,28 @@ Fixes: `description` now comes before `content_type` in the form, so the model w
 Speech recognition runs at about 17 to 19 times real time on the GPU. The vision step is 43% to 55% of the total, and it is limited by the free-tier quota, not by compute.
 
 **What that means for the speed work.** The biggest lever is the Gemini quota, which is a setting, because the free tier floors vision at about 4.3 seconds per keyframe. The next is overlapping the GPU stage with the keyframe, OCR and vision stages, which I estimate would save around 40% per lecture (an estimate, not measured). Spreading OCR over CPU cores would save under a minute per lecture, so I am skipping it. Processing 12 or 13 lectures one after another would take roughly two to two and a half hours today.
+
+---
+
+## 18. The Phase 1 exit check
+
+**Problem.** Phase 1 promises that for any moment in a lecture you can tell what was said and which slide was on screen. Until now I had checked that by hand, lecture by lecture, with one-off scripts. I wanted one command that does it the same way every time.
+
+**Chosen.** `python -m src.verify <lecture>` (or `--all`). It reads only the processed files, so it needs no video, no GPU and no API key, and it never changes anything. It reports each check as PASS, FAIL, WARN or INFO, and the exit code is 1 if anything failed.
+
+**What it checks.**
+- All four files exist and every item has the right shape, and the keyframe images exist and match the metadata.
+- The vision and cleanup stages finished for every keyframe.
+- There is one knowledge object per keyframe, each names its lecture, and each starts at its keyframe.
+- Each slide ends exactly when the next one starts, with no gaps and no overlaps.
+- The word count in the knowledge objects equals the word count in the transcript, so no speech is lost or duplicated.
+- The promise itself: every piece of speech falls inside exactly one slide's time span, and `alignment.json` picked that same slide. This is a second, independent calculation, not a copy of the one in `align`.
+- Warnings that are not failures: slides nobody spoke during (kept on purpose), and speech before the first keyframe.
+
+`python -m src.verify <lecture> --at 1420` shows the promise in action: it prints the slide on screen at that second (type, title, slide number, image, description) and the speech around it.
+
+**Results (2026-10-06).** All three lectures pass: 64, 67 and 73 knowledge objects, with 11,194, 11,192 and 10,051 words matching exactly. The only warnings are the slides with no speech (4, 2 and 5 of them).
+
+**Does it catch problems?** I copied the first lecture's processed folder six times and broke each copy differently: one slide's speech deleted, one slide ending a second late, one image file deleted, one description missing, one segment matched to the wrong slide, and one keyframe without cleaned text. Each was caught by exactly the check that should catch it, and the untouched lecture still passed. Twenty-two automated tests cover the same cases on tiny hand-made data. One of my own tests failed at first because I had made inconsistent fake data, and the check flagged it.
+
+**What it does not prove.** It checks completeness and consistency, not quality. It cannot tell me whether Whisper heard a word correctly, whether the vision model's description is right, or whether Tesseract's text is good. Those were judged separately, by reading samples and comparing against the vision model's text (decisions 11, 14 and 15).
