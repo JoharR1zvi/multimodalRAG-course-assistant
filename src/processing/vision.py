@@ -264,7 +264,7 @@ def describe_images(metadata_path: Path, *, force: bool = False) -> None:
     with open(metadata_path, "w", encoding="utf-8") as f:
         json.dump(output_data, f, indent=2)
 
-    # Now that the results are saved, let Ctrl+C stop the whole program as the user wanted
+    # Now that the results are saved, let Ctrl+C stop the whole program as usual
     if interrupted:
         raise KeyboardInterrupt
 

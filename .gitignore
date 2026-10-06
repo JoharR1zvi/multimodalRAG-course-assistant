@@ -39,7 +39,5 @@ Thumbs.db
 # Logs
 *.log
 
-# Local project notes (not for public repo)
-CLAUDE.md
-docs/
-claude_code_project_context.docx
+# Test cache
+.pytest_cache/
