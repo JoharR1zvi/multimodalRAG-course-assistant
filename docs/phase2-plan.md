@@ -1,7 +1,30 @@
 # Phase 2 plan: from knowledge objects to cited answers
 
-Status: **planned, not started.** Phase 2 opens after the pre-Phase-2 checklist in `roadmap.md` is finished (most of it is done).
-Last updated: 2026-10-06.
+Status: **a working prototype exists (2026-10-08), but it is not evaluated yet.** The steps below are built up to cited answers. Measuring them is next.
+Last updated: 2026-10-08.
+
+## Where each step stands
+
+| Step | What | Status |
+|---|---|---|
+| 2.0 | Carry all three versions of the slide text into the knowledge objects | Done |
+| 2.1 | Chunking, `chunks.json`, checks in the exit check | Done (decision 19) |
+| Evaluation set | Questions with known answer locations | Built, kept private. The command that runs it is not written yet (decision 23) |
+| 2.2 | Embeddings behind one swappable interface | The local model (bge-m3) is done. The Gemini provider is not built, so the comparison is pending (decisions 12 and 20) |
+| 2.3 | Vector store (embedded Qdrant) and indexing | Done (decision 21). Indexing is pipeline stage 10 |
+| 2.4 | Retrieval | Dense search is done (`python -m src.search`). The evaluation, keyword search with rank fusion, and the three-way slide text comparison are not done |
+| 2.5 | Reranking | Not started, and only if the evaluation shows a gain |
+| 2.6 | Cited answers | Done (`python -m src.ask`, decision 22). Whether the cited chunks support their claims is not checked yet |
+
+How the first version differs from the plan below:
+
+- **The embedding input limit.** The plan did not mention it. Chunks are sized in words, and the model counts tokens, so more than half of the embedded texts were being cut off. The limit is now 3,072 tokens and the limit is part of the cache key (decision 20).
+- **The evaluation set lives in `data/eval/`,** an ignored folder, and not in `tests/retrieval_eval.json`, because the questions come from course material.
+- **Commands:** `python -m src.search` and `python -m src.ask`. Indexing is the pipeline stage `index`, next to the new stage `chunk`.
+- **A chunk also carries** `slide_titles`, and all three versions of the slide text (`slide_text`, `cleaned_text`, `clean_text`), so the retrieval experiments can swap them without rebuilding anything.
+- **Citations are numbers, not times.** The answer model cites excerpt numbers, and the sources are looked up from the stored chunks (decision 22).
+
+The diagrams in the README show the flow, and `docs/architecture.md` describes the stages.
 
 ## Goal
 
@@ -47,6 +70,10 @@ question
 `Chunk`: `chunk_id` (deterministic, e.g. `lecture_01_1420`, so re-indexing overwrites instead of duplicating), `course_id`, `lecture_id`, `start_timestamp`, `end_timestamp`, `slide_timestamps` (list of every slide the chunk covers), `image_paths` (list), `text` (the speech), `slide_text`, `slide_description`, `embed_text` (the string actually embedded), `prev_chunk_id`, `next_chunk_id`.
 
 `SearchResult`: a `Chunk` plus `score` and the method that found it.
+
+## 2.0 Carry all the slide text forward
+
+Phase 1 produces three versions of each slide's text: the raw OCR text (`slide_text`), the cleaned OCR text (`cleaned_text`) and the vision model's reading (`clean_text`). Only the first is in `knowledge_objects.json` today. Before chunking I add the other two to the knowledge objects, with empty defaults so older files still load, and rebuild them for the three lectures. Then a chunk can carry all three, and the experiment in 2.4 can swap them (decision 15).
 
 ## 2.1 Chunking: `src/processing/chunking.py` -> `chunks.json`
 

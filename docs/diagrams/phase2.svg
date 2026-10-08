@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="978" height="842" viewBox="0 0 978 842" role="img" aria-label="Parts B and C: lectures are cut into chunks and stored by meaning once; each question is matched to the closest chunks and answered with sources.">
+<title>Parts B and C: lectures are cut into chunks and stored by meaning once; each question is matched to the closest chunks and answered with sources.</title>
+<rect x="0.5" y="0.5" width="977" height="841" rx="16" fill="#FFFFFF" stroke="#D8DEE8"/>
+<rect x="20" y="44" width="320" height="454" rx="18" fill="#E2F4EE" fill-opacity="0.65"/>
+<text x="38" y="70" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#176654">B   GET READY TO SEARCH</text>
+<text x="38" y="88" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D">once per lecture, stages 9 and 10</text>
+<rect x="638" y="44" width="320" height="714" rx="18" fill="#FDEEDD" fill-opacity="0.65"/>
+<text x="656" y="70" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#94500B">C   ANSWER A QUESTION</text>
+<text x="656" y="88" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D">every time someone asks</text>
+<rect x="20" y="520" width="320" height="270" rx="18" fill="#F2F4F7" fill-opacity="0.65"/>
+<rect x="20" y="520" width="320" height="270" rx="18" fill="none" stroke="#8F99A8" stroke-width="1.5" stroke-dasharray="7 5"/>
+<text x="38" y="546" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#586577">NEXT (planned, not built yet)</text>
+<rect x="36" y="108" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="74" cy="164.0" r="22" fill="#4A78C8"/>
+<g transform="translate(74,164.0) scale(1.0)"><rect x="-10" y="-11" width="20" height="6" rx="2" fill="#FFFFFF"/><rect x="-10" y="-3" width="20" height="6" rx="2" fill="#FFFFFF"/><rect x="-10" y="5" width="20" height="6" rx="2" fill="#FFFFFF"/></g>
+<text x="110" y="136" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Knowledge objects</text>
+<text x="110" y="156" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Everything part A produced for</text>
+<text x="110" y="172" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">the lecture.</text>
+<text x="110" y="208" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">knowledge_objects.json</text>
+<rect x="36" y="238" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#2E9C85" stroke-width="2"/>
+<circle cx="74" cy="294.0" r="22" fill="#2E9C85"/>
+<g transform="translate(74,294.0) scale(1.0)"><rect x="-11" y="-5" width="6" height="10" rx="1.5" fill="#FFFFFF"/><rect x="-3" y="-5" width="6" height="10" rx="1.5" fill="#FFFFFF"/><rect x="5" y="-5" width="6" height="10" rx="1.5" fill="#FFFFFF"/></g>
+<text x="110" y="266" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Cut into chunks</text>
+<text x="110" y="286" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">About 350 words of speech each,</text>
+<text x="110" y="302" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">together with the slides shown</text>
+<text x="110" y="318" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">meanwhile.</text>
+<text x="110" y="338" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#176654">chunks.json</text>
+<circle cx="40" cy="242" r="14" fill="#176654" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="40" y="246.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">9</text>
+<rect x="36" y="368" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#2E9C85" stroke-width="2"/>
+<circle cx="74" cy="424.0" r="22" fill="#2E9C85"/>
+<g transform="translate(74,424.0) scale(1.0)"><circle cx="-7" cy="-7" r="1.9" fill="#FFFFFF"/><circle cx="-7" cy="0" r="1.9" fill="#FFFFFF"/><circle cx="-7" cy="7" r="1.9" fill="#FFFFFF"/><circle cx="0" cy="-7" r="1.9" fill="#FFFFFF"/><circle cx="0" cy="0" r="1.9" fill="#FFFFFF"/><circle cx="0" cy="7" r="1.9" fill="#FFFFFF"/><circle cx="7" cy="-7" r="1.9" fill="#FFFFFF"/><circle cx="7" cy="0" r="1.9" fill="#FFFFFF"/><circle cx="7" cy="7" r="1.9" fill="#FFFFFF"/></g>
+<text x="110" y="396" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Turn chunks into numbers</text>
+<text x="110" y="416" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Each chunk becomes 1,024 numbers</text>
+<text x="110" y="432" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">that capture its meaning.</text>
+<text x="110" y="468" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#176654">bge-m3 on the GPU</text>
+<circle cx="40" cy="372" r="14" fill="#176654" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="40" y="376.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">10</text>
+<path d="M180.0,226 L180.0,232" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="180.0,232 174.5,222.0 185.5,222.0" fill="#7B8798"/>
+<path d="M180.0,356 L180.0,362" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="180.0,362 174.5,352.0 185.5,352.0" fill="#7B8798"/>
+<rect x="36" y="564" width="288" height="96" rx="14" fill="#FFFFFF" stroke="#8F99A8" stroke-width="2" stroke-dasharray="7 5"/>
+<circle cx="74" cy="612.0" r="22" fill="#8F99A8"/>
+<g transform="translate(74,612.0) scale(1.0)"><circle cx="0" cy="0" r="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="5.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="1.8" fill="#FFFFFF"/></g>
+<text x="110" y="592" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Test with real questions</text>
+<text x="110" y="612" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Measure how often the right</text>
+<text x="110" y="628" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">chunk is among the 5 found.</text>
+<text x="110" y="648" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#586577">next</text>
+<rect x="36" y="676" width="288" height="96" rx="14" fill="#FFFFFF" stroke="#8F99A8" stroke-width="2" stroke-dasharray="7 5"/>
+<circle cx="74" cy="724.0" r="22" fill="#8F99A8"/>
+<g transform="translate(74,724.0) scale(1.0)"><path d="M-10,7 L-3,0 L2,4 L10,-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4,-7 H10 V-1" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="110" y="704" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Improve the weak spots</text>
+<text x="110" y="724" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Search by exact words too, and</text>
+<text x="110" y="740" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">re-order results, if it helps.</text>
+<text x="110" y="760" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#586577">later</text>
+<path d="M180.0,664 L180.0,672" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5"/>
+<polygon points="180.0,672 174.5,662.0 185.5,662.0" fill="#7B8798"/>
+<rect x="654" y="108" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
+<circle cx="692" cy="164.0" r="22" fill="#DB8A33"/>
+<g transform="translate(692,164.0) scale(1.0)"><text x="0" y="8" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="24" font-weight="bold" fill="#FFFFFF">?</text></g>
+<text x="728" y="136" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Your question</text>
+<text x="728" y="156" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Typed on the command line.</text>
+<text x="728" y="208" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#94500B">python -m src.ask "..."</text>
+<circle cx="658" cy="112" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="658" y="116.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C1</text>
+<rect x="654" y="238" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
+<circle cx="692" cy="294.0" r="22" fill="#DB8A33"/>
+<g transform="translate(692,294.0) scale(1.0)"><circle cx="-7" cy="-7" r="1.9" fill="#FFFFFF"/><circle cx="-7" cy="0" r="1.9" fill="#FFFFFF"/><circle cx="-7" cy="7" r="1.9" fill="#FFFFFF"/><circle cx="0" cy="-7" r="1.9" fill="#FFFFFF"/><circle cx="0" cy="0" r="1.9" fill="#FFFFFF"/><circle cx="0" cy="7" r="1.9" fill="#FFFFFF"/><circle cx="7" cy="-7" r="1.9" fill="#FFFFFF"/><circle cx="7" cy="0" r="1.9" fill="#FFFFFF"/><circle cx="7" cy="7" r="1.9" fill="#FFFFFF"/></g>
+<text x="728" y="266" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Turn it into numbers</text>
+<text x="728" y="286" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">With the same model that handled</text>
+<text x="728" y="302" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">the chunks.</text>
+<text x="728" y="338" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#94500B">bge-m3</text>
+<circle cx="658" cy="242" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="658" y="246.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C2</text>
+<rect x="654" y="368" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
+<circle cx="692" cy="424.0" r="22" fill="#DB8A33"/>
+<g transform="translate(692,424.0) scale(1.0)"><circle cx="-2" cy="-2" r="7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3,3 L10,10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/></g>
+<text x="728" y="396" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Find the closest chunks</text>
+<text x="728" y="416" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">The 5 chunks whose numbers are</text>
+<text x="728" y="432" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">closest in meaning.</text>
+<text x="728" y="468" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#94500B">python -m src.search</text>
+<circle cx="658" cy="372" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="658" y="376.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C3</text>
+<rect x="654" y="498" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
+<circle cx="692" cy="554.0" r="22" fill="#DB8A33"/>
+<g transform="translate(692,554.0) scale(1.0)"><path d="M0,-11 L2.5,-2.5 L11,0 L2.5,2.5 L0,11 L-2.5,2.5 L-11,0 L-2.5,-2.5 Z" fill="#FFFFFF"/></g>
+<text x="728" y="526" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Write the answer</text>
+<text x="728" y="546" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Gemini answers from those 5</text>
+<text x="728" y="562" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">chunks only, and cites them.</text>
+<text x="728" y="598" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#94500B">Gemini (cloud API)</text>
+<circle cx="658" cy="502" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="658" y="506.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C4</text>
+<rect x="654" y="628" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
+<circle cx="692" cy="684.0" r="22" fill="#DB8A33"/>
+<g transform="translate(692,684.0) scale(1.0)"><path d="M-9,0 L-3,6 L9,-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/></g>
+<text x="728" y="656" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Check and show sources</text>
+<text x="728" y="676" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Our code drops invented</text>
+<text x="728" y="692" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">citations, then lists each</text>
+<text x="728" y="708" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">source: lecture, time, slides.</text>
+<text x="728" y="728" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#94500B">no model involved</text>
+<circle cx="658" cy="632" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="658" y="636.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C5</text>
+<path d="M798.0,226 L798.0,232" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="798.0,232 792.5,222.0 803.5,222.0" fill="#7B8798"/>
+<path d="M798.0,356 L798.0,362" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="798.0,362 792.5,352.0 803.5,352.0" fill="#7B8798"/>
+<path d="M798.0,486 L798.0,492" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="798.0,492 792.5,482.0 803.5,482.0" fill="#7B8798"/>
+<path d="M798.0,616 L798.0,622" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="798.0,622 792.5,612.0 803.5,612.0" fill="#7B8798"/>
+<rect x="414" y="324.0" width="150" height="200" rx="14" fill="#FFFFFF" stroke="#2E9C85" stroke-width="2"/>
+<circle cx="489.0" cy="362.0" r="22" fill="#2E9C85"/>
+<g transform="translate(489.0,362.0) scale(1.0)"><ellipse cx="0" cy="-7" rx="9" ry="3.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-9,-7 V7 A9,3.5 0 0 0 9,7 V-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-9,0 A9,3.5 0 0 0 9,0" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="489.0" y="410.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37" text-anchor="middle">Database</text>
+<text x="489.0" y="430.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle">Keeps each chunk's</text>
+<text x="489.0" y="445.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle">numbers, times and</text>
+<text x="489.0" y="460.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle">text, searchable by</text>
+<text x="489.0" y="475.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle">meaning.</text>
+<text x="489.0" y="512.0" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#176654" text-anchor="middle">data/qdrant/</text>
+<path d="M330,424.0 L408,424.0" fill="none" stroke="#7B8798" stroke-width="2.8600000000000003" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="408,424.0 395.0,416.85 395.0,431.15" fill="#7B8798"/>
+<text x="369.0" y="412.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle" font-style="italic">stores</text>
+<path d="M648,404.0 L570,404.0" fill="none" stroke="#7B8798" stroke-width="2.8600000000000003" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="570,404.0 583.0,396.85 583.0,411.15" fill="#7B8798"/>
+<text x="609.0" y="368.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle" font-style="italic">question</text>
+<text x="609.0" y="382.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle" font-style="italic">as numbers</text>
+<path d="M570,444.0 L648,444.0" fill="none" stroke="#7B8798" stroke-width="2.8600000000000003" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="648,444.0 635.0,436.85 635.0,451.15" fill="#7B8798"/>
+<text x="609.0" y="470.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle" font-style="italic">5 closest</text>
+<text x="609.0" y="484.0" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle" font-style="italic">chunks</text>
+<text x="489.0" y="820" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle">The small text under each step names the tool or the file behind it.</text>
+</svg>

@@ -2,7 +2,7 @@
 
 One entry per decision: the problem, what I considered, what I chose, why, and what happened. Newest decisions go at the bottom. Entries marked *pending* are waiting on results.
 
-Last updated: 2026-10-06.
+Last updated: 2026-10-08.
 
 ---
 
@@ -136,6 +136,8 @@ Full reasoning in `phase2-plan.md`. Summary:
 - **Measure before tuning:** write a question set with known answer locations first, then compare dense search, hybrid search (dense plus BM25, merged by reciprocal rank fusion) and optional reranking by hit@k.
 - **A hosted database would not save disk.** Vectors for a full course are a few MB. The disk is taken by the audio file and the videos, so the audio file is deleted after transcription.
 
+**Status (2026-10-08).** Built, except the embedding comparison, hybrid search and reranking. What happened to each point is in decisions 19 to 23.
+
 ---
 
 ## 11. Cleaning interface text out of OCR without hardcoding the layout
@@ -174,6 +176,8 @@ Full reasoning in `phase2-plan.md`. Summary:
 ## 12. Embedding model comparison (pending)
 
 To be filled in after steps 2.2 and 2.4: hit@k, latency, cost and rate-limit behaviour for the local model against the API model, and which one became the default and why.
+
+**Status (2026-10-08).** Only the local model (bge-m3) is built and working, so the comparison has not been run. The Gemini provider answers "not built yet". What I learned about the local model so far is in decision 20.
 
 ---
 
@@ -232,6 +236,8 @@ Fixes: `description` now comes before `content_type` in the form, so the model w
 
 **After cleaning the OCR (2026-10-06).** On the slide lectures, 92 to 97% of the cleaned OCR words are also in the model's text, so cleaned OCR is now close to it for plain slide text (decision 11). What the model adds beyond that is diagrams and formulas, which OCR cannot read. Of the three versions, the comparison at retrieval time still decides.
 
+**Status (2026-10-08).** All three versions now travel with every chunk (`slide_text`, `cleaned_text`, `clean_text`). The version that gets embedded is a setting, and the default is the vision model's text, because it is the cleanest in the samples I read. The retrieval comparison itself has not been run, because it needs the evaluation set to run first (decision 23). Decision 20 adds a second question to it: how much slide text to embed at all.
+
 **What the code lecture already shows.** On a frame of a terminal session, the model's output is the terminal text line by line with indentation, and Tesseract's output for the same frame is a jumble (`Terminal”|File.|Edit:|Scrolibach)|...|npartante`). On that lecture the share of OCR words that the model's text lacks has a median of 62%, against 29-36% on the slide lectures. For code, the model's text is clearly the better source, so the open question is mostly about slide lectures.
 
 ---
@@ -289,3 +295,95 @@ Speech recognition runs at about 17 to 19 times real time on the GPU. The vision
 **Does it catch problems?** I copied the first lecture's processed folder six times and broke each copy differently: one slide's speech deleted, one slide ending a second late, one image file deleted, one description missing, one segment matched to the wrong slide, and one keyframe without cleaned text. Each was caught by exactly the check that should catch it, and the untouched lecture still passed. Twenty-two automated tests cover the same cases on tiny hand-made data. One of my own tests failed at first because I had made inconsistent fake data, and the check flagged it.
 
 **What it does not prove.** It checks completeness and consistency, not quality. It cannot tell me whether Whisper heard a word correctly, whether the vision model's description is right, or whether Tesseract's text is good. Those were judged separately, by reading samples and comparing against the vision model's text (decisions 11, 14 and 15).
+
+---
+
+## 19. Chunking: cut by the length of the speech, carry the slide text along
+
+**Problem.** The knowledge objects are one per slide, but slides are very uneven. In the first lecture the median slide has 162 words of speech, 26 of 64 slides have under 100 words, 8 have over 350, and 4 have none. A good thing to search is a piece of about the same size that points at a precise moment.
+
+**Considered.**
+- *One chunk per slide.* Rejected for the numbers above: tiny slides make useless search targets and long ones make blurry ones. It also breaks when one slide is shown in several screen states, which happens a lot with annotated slides. The next screen change kept the same title in 12 of 59 cases in lecture 1 and in 27 of 62 in lecture 2.
+- *Cut by length and attach the slides afterwards.* Chosen.
+- *Cut where the meaning shifts* (semantic chunking). It costs more and tends not to beat simple methods by much, so I left it for later.
+- *Cut by length but prefer a real slide change.* Not built yet, see the experiment below.
+
+**Chosen.** Pieces of speech go into a bucket in time order. At about 350 words the bucket is sealed, and the next one starts with a copy of the last piece (one piece of overlap). A bucket never goes over 450 words. A slide nobody spoke during waits and joins the next bucket, because a title comes before the content it names. A tiny last bucket is merged into the one before it. Chunks come from the timed speech pieces in `alignment.json`, not from the joined text, so every chunk has exact start and end times. Each chunk keeps all three versions of the slide text and the diagram description, and `embed_text` is built from slide text, description and speech. Sizes are counted in words of speech, which turned out to matter, see decision 20.
+
+**Results (2026-10-08).** 33, 33 and 30 chunks for the three lectures, with a median of 356, 353 and 356 words of speech and about three slides per chunk. The exit check now verifies chunks as well (decision 18 describes the rest of the check). All three lectures pass. Eight new tests each damage correct chunks in one way and check that the matching check fails: a chunk over the maximum, a slide in no chunk, lost speech, a chunk reaching past its slides, duplicate ids, a broken neighbour link, and no chunks at all.
+
+**One check failed on real data, and the check was wrong.** "Chunk times lie inside the slides it lists" failed on all three lectures. A speech piece belongs to the slide showing when it starts, so a piece that starts just before a slide change can end up to 7.4 seconds after it, and a chunk that ends on that piece inherits the overrun. The chunker was right. I allowed 10 seconds of overrun in the check, and a test still catches a chunk that ends minutes late.
+
+**What I measured about the cuts.** Because cuts ignore slides, they almost always fall in the middle of a slide: 31 of 32 cuts in lecture 1, 30 of 32 in lecture 2 and 22 of 29 in lecture 3. By hand I also saw a search hit whose speech preview was about one topic while the matching part was later in the chunk, which suggests chunks sometimes mix topics.
+
+**Experiment I will run later.** Once a bucket has at least about 250 words, close it at the next real slide change (a changed title, not just a new keyframe), and use the current rule when there are no titles (the code lecture has titles on only 12 of 73 slides). I will compare it with the current rule by hit@k on the evaluation set (decision 23) and keep whichever finds the right chunk more often. Chunk size will be tested the same way.
+
+---
+
+## 20. Embeddings: bge-m3 on the GPU, and the input limit I missed
+
+**Problem.** Turn chunks and questions into vectors, with a model I can swap.
+
+**Chosen.** BAAI/bge-m3 through sentence-transformers, on the GPU in half precision, giving 1,024 numbers per text, scaled to length 1. The provider and model come from `config.py`. The vector size is measured and never typed in. Only the local provider is built; the Gemini one answers "not built yet", so the comparison in decision 12 is still pending. Every vector is cached on disk, in a file named by a hash of the model, the token limit and the text.
+
+**A mistake I found by measuring.** I had sized chunks in words, but the model reads tokens (pieces of words) and cuts everything after 1,024 tokens without a warning. I counted the tokens of all 96 embedded texts:
+
+| Lecture | Chunks | Over 1,024 tokens | Longest |
+|---|---|---|---|
+| Lecture 1 | 33 | 16 | 1,979 |
+| Lecture 2 | 33 | 18 | 1,845 |
+| Lecture 3 | 30 | 21 | 2,549 |
+
+So 55 of 96 chunks lost the end of their text. The embedded text starts with the slide text and the description and ends with the speech, so it was the speech that was cut. The speech alone was never the problem: it is about 450 to 475 tokens per chunk (at most 527). The rest is slide material. The slide text is about 320 to 384 tokens per chunk and the description 171 to 422, and slide text costs 1.9 to 2.2 tokens per word against 1.3 for speech, because of symbols and web addresses.
+
+**Fix.** The limit is now 3,072 tokens (the model accepts up to 8,192), the batch size went from 8 to 4 for a 6 GB card, and the service prints a warning if any text is still cut. The token limit is part of the cache key, because otherwise the 96 vectors already saved from cut-off text would have been reused silently. No text is cut now, and embedding all 96 chunks takes about two seconds per lecture once the model is loaded (peak GPU memory about 2.7 GB). A quick check by hand gave the same top results before and after the change.
+
+**What this leaves open.** More than half of what is embedded is slide material, so the vector may lean toward the slide and away from the speech. Whether that helps or hurts is a measurement. The comparison I plan: speech only, speech plus slide text, and everything, with the three versions of the slide text (decision 15). I would trim repeated slide text and cap descriptions only if the numbers show the slide text drowning out the speech.
+
+**Lesson.** A model's input limit is a ceiling and not a target, so I measure in the unit the model uses (tokens, not words) and never let text be cut silently.
+
+---
+
+## 21. Vector store: embedded Qdrant
+
+**Problem.** Store the vectors, find the closest ones to a question, filter by lecture, and return everything needed for a citation.
+
+**Considered.** A plain array searched with numpy would be fast enough: a 13-lecture course is about 500 chunks. A hosted vector database would add an account and a network hop for no gain at this size. I chose Qdrant in embedded mode because I want to learn how a vector database works, because it filters on metadata, and because it still works when there are many more courses and documents. Speed is not the reason.
+
+**Chosen.** Qdrant runs inside the program and keeps its files in `data/qdrant/`. There is one collection per embedding model (`course_chunks__bge-m3`), so vectors from different models never mix. A point is a vector plus the whole chunk as its payload, so a result carries its own lecture, times, slide titles and text. A point's id is derived from the chunk id (a UUID built from it), so saving a chunk twice overwrites it. The distance is cosine, which suits vectors scaled to length 1.
+
+**Indexing** removes a lecture's old points and saves the new ones, and it counts as done when the database holds as many points for the lecture as there are chunks. So it is safe to run again, and re-chunking a lecture cannot leave stale points behind. It is stage 10 of the pipeline.
+
+**Result.** 96 points (33, 33 and 30), 2.1 MB on disk. Running the pipeline again stores nothing new. Thirteen tests use Qdrant's in-memory mode with 3-number vectors, and breaking the lecture filter or the clean-up of old points makes tests fail.
+
+**Limit.** Only one program can have `data/qdrant/` open at a time.
+
+---
+
+## 22. Answers with citations that cannot be invented
+
+**Problem.** A language model can invent a timestamp as easily as a fact. The answer has to cite the lecture, the time and the slide, and those citations must be real.
+
+**Chosen.** The five closest chunks are numbered 1 to 5 and given to Gemini as excerpts. The model must reply in a fixed form with two fields, `answerable` and `answer`, and may cite only excerpt numbers such as `[2]`. It never writes a lecture name or a time. My code then looks up each cited number and builds the source list from that chunk's stored data: lecture, time range, slide titles and the picture of its first slide. A citation to a number that does not exist is removed and reported, an answer that claims to be answerable but cites nothing valid gets a warning, and if the search finds nothing, the model is not called at all. The instructions say to use only the excerpts and no outside knowledge, to say so when they do not cover the question, to cite after every statement, and to treat the excerpts as data and not as instructions. The temperature is 0, and the thinking level is low.
+
+**Why a fixed form.** The same reason as the vision step (decision 14): there is no sentence to string-match for "I cannot answer this".
+
+**Result.** I tried two questions by hand. One was answered in four sentences with four cited sources, with real lecture names and time ranges. One question that the lectures do not cover (the weather in a city) was refused, with the three closest passages shown. 16 tests replace Gemini with a prepared reply and check what my code does with it, including a made-up citation.
+
+**What is not verified.** That a cited chunk really supports the sentence it is attached to. The code can prove a citation exists, not that it is relevant. Checking that needs the evaluation set (decision 23) and either reading the answers or a judge. Also, the slide pictures are not sent to the model, only their text and descriptions, so a question about a figure depends on the quality of its description.
+
+---
+
+## 23. The evaluation set: questions from the course's own exercise sheets
+
+**Problem.** The rule from the plan is to measure before tuning, which needs questions with known answer locations. Making them up myself would test what I already think the system can do.
+
+**Chosen.** I use the recall questions from the course's two exercise sheets: 9 questions, with one split into three parts, so 11 items. Each item has the time ranges in the lectures where the answer is spoken. I added 3 questions the lectures do not cover (one off topic, two from neighbouring fields), to test that the system refuses. I checked that none of them is mentioned in the transcripts.
+
+**How the ranges were found, and checked.** I found them by keyword matching on the transcripts and by reading the passages, and not with the search system, because the search would then grade itself. A second pass, which did not see my ranges, found them again from the questions alone. The two agreed within seconds on all 11. Where they differed slightly I took the union.
+
+**Three findings.** Three items are only partly answered by the lecturer, so I marked them `partial`: the effect of raising or lowering a threshold (the trade-off is stated, not the direction), the axes of a curve (they are on the slide, not spoken), and why one property of a method is desirable (explained, but the lecturer argues little for it). For those, a good answer is a partial answer that says what is missing. One question on the second sheet is answered in the first lecture, so it tests search across lectures. And the transcript mishears some abbreviations (the abbreviation AUROC is often written as "rock"), which is why keyword matching alone would struggle on those questions.
+
+**Reference answers.** For each item I keep a short answer written from the transcript only, and not from the internet, because the system must answer from the course. An answer from the web would measure whether the system knows the topic, and not whether it found what this lecturer said.
+
+**Status.** The set is built. The command that runs it and reports hit@1, hit@3, hit@5 and mean reciprocal rank, and checks the three refusals, is not built yet. The file stays out of this repository (it is in an ignored folder), because the questions come from course material.

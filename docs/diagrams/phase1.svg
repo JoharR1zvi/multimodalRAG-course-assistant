@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="1104" viewBox="0 0 780 1104" role="img" aria-label="Part A: a lecture video is split into what was said and what was shown, and the two are matched slide by slide.">
+<title>Part A: a lecture video is split into what was said and what was shown, and the two are matched slide by slide.</title>
+<rect x="0.5" y="0.5" width="779" height="1103" rx="16" fill="#FFFFFF" stroke="#D8DEE8"/>
+<circle cx="40" cy="46" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="40" y="50.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">A</text>
+<text x="64" y="52" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#2A4F8C">Understand</text>
+<text x="64" y="72" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#2A4F8C">the lecture</text>
+<text x="64" y="94" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D">pipeline stages 1 to 8</text>
+<rect x="240" y="22" width="300" height="100" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="278" cy="72.0" r="22" fill="#4A78C8"/>
+<g transform="translate(278,72.0) scale(1.0)"><rect x="-11" y="-7" width="15" height="14" rx="3" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4,-2 L11,-6 L11,6 L4,2 Z" fill="#FFFFFF"/></g>
+<text x="314" y="50" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Lecture video</text>
+<text x="314" y="70" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">A recording of one lecture, stored</text>
+<text x="314" y="86" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">as a file on your computer.</text>
+<text x="314" y="110" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">data/raw/&lt;lecture&gt;/</text>
+<rect x="24" y="176" width="332" height="304" rx="18" fill="#E8F0FE" fill-opacity="0.65"/>
+<text x="42" y="202" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#2A4F8C">WHAT WAS SAID</text>
+<rect x="424" y="176" width="332" height="572" rx="18" fill="#E8F0FE" fill-opacity="0.65"/>
+<text x="442" y="202" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#2A4F8C">WHAT WAS SHOWN</text>
+<rect x="40" y="216" width="300" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="78" cy="272.0" r="22" fill="#4A78C8"/>
+<g transform="translate(78,272.0) scale(1.0)"><rect x="-11.5" y="-3.0" width="3" height="6" rx="1.5" fill="#FFFFFF"/><rect x="-6.5" y="-7.0" width="3" height="14" rx="1.5" fill="#FFFFFF"/><rect x="-1.5" y="-11.0" width="3" height="22" rx="1.5" fill="#FFFFFF"/><rect x="3.5" y="-6.0" width="3" height="12" rx="1.5" fill="#FFFFFF"/><rect x="8.5" y="-3.0" width="3" height="6" rx="1.5" fill="#FFFFFF"/></g>
+<text x="114" y="244" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Extract the audio</text>
+<text x="114" y="264" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Pull the sound track out of the</text>
+<text x="114" y="280" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">video.</text>
+<text x="114" y="316" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">FFmpeg</text>
+<circle cx="44" cy="220" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="44" y="224.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">1</text>
+<rect x="40" y="350" width="300" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="78" cy="406.0" r="22" fill="#4A78C8"/>
+<g transform="translate(78,406.0) scale(1.0)"><rect x="-8" y="-11" width="16" height="22" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-4,-5 H4 M-4,0 H4 M-4,5 H1" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="114" y="378" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Write down the speech</text>
+<text x="114" y="398" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Turn the speech into text, with</text>
+<text x="114" y="414" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">the start and end time of every</text>
+<text x="114" y="430" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">sentence.</text>
+<text x="114" y="450" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">Faster-Whisper on the GPU</text>
+<circle cx="44" cy="354" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="44" y="358.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">2</text>
+<rect x="440" y="216" width="300" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="478" cy="272.0" r="22" fill="#4A78C8"/>
+<g transform="translate(478,272.0) scale(1.0)"><rect x="-11" y="-8" width="19" height="14" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="-6" y="-3" width="19" height="14" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#4A78C8"/></g>
+<text x="514" y="244" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Find the slide changes</text>
+<text x="514" y="264" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Save a picture each time the</text>
+<text x="514" y="280" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">screen changes enough.</text>
+<text x="514" y="316" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">OpenCV frame comparison</text>
+<circle cx="444" cy="220" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="444" y="224.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">3</text>
+<rect x="440" y="350" width="300" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="478" cy="406.0" r="22" fill="#4A78C8"/>
+<g transform="translate(478,406.0) scale(1.0)"><text x="0" y="6" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" fill="#FFFFFF">Aa</text></g>
+<text x="514" y="378" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Read the slide text (OCR)</text>
+<text x="514" y="398" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Read the words on every picture.</text>
+<text x="514" y="450" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">Tesseract</text>
+<circle cx="444" cy="354" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="444" y="358.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">4</text>
+<rect x="440" y="484" width="300" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="478" cy="540.0" r="22" fill="#4A78C8"/>
+<g transform="translate(478,540.0) scale(1.0)"><path d="M-11,0 Q0,-10 11,0 Q0,10 -11,0 Z" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="3.5" fill="#FFFFFF"/></g>
+<text x="514" y="512" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Describe each slide</text>
+<text x="514" y="532" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Each picture goes to Gemini (a</text>
+<text x="514" y="548" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">cloud service), which gives the</text>
+<text x="514" y="564" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">title and describes diagrams.</text>
+<text x="514" y="584" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">Gemini (cloud API)</text>
+<circle cx="444" cy="488" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="444" y="492.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">5</text>
+<rect x="440" y="618" width="300" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="478" cy="674.0" r="22" fill="#4A78C8"/>
+<g transform="translate(478,674.0) scale(1.0)"><path d="M-10,-9 H10 L3,0 V9 L-3,6 V0 Z" fill="#FFFFFF"/></g>
+<text x="514" y="646" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Clean up the text</text>
+<text x="514" y="666" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Remove words that repeat on every</text>
+<text x="514" y="682" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">slide (menus) and characters OCR</text>
+<text x="514" y="698" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">was unsure about.</text>
+<text x="514" y="718" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">repeated-word filter</text>
+<circle cx="444" cy="622" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="444" y="626.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">6</text>
+<path d="M390,122 L390,150 L190,150 L190,210" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="190,210 184.5,200.0 195.5,200.0" fill="#7B8798"/>
+<path d="M390,150 L590,150 L590,210" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="590,210 584.5,200.0 595.5,200.0" fill="#7B8798"/>
+<path d="M190,334 L190,344" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="190,344 184.5,334.0 195.5,334.0" fill="#7B8798"/>
+<path d="M590,334 L590,344" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="590,344 584.5,334.0 595.5,334.0" fill="#7B8798"/>
+<path d="M590,468 L590,478" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="590,478 584.5,468.0 595.5,468.0" fill="#7B8798"/>
+<path d="M590,602 L590,612" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="590,612 584.5,602.0 595.5,602.0" fill="#7B8798"/>
+<rect x="140" y="792" width="500" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="178" cy="848.0" r="22" fill="#4A78C8"/>
+<g transform="translate(178,848.0) scale(1.0)"><circle cx="-4.5" cy="0" r="7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="4.5" cy="0" r="7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="214" y="820" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Match speech to slides</text>
+<text x="214" y="840" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Every piece of speech is filed under the slide that was on screen</text>
+<text x="214" y="856" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">when it started.</text>
+<text x="214" y="892" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">alignment.json</text>
+<circle cx="144" cy="796" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="144" y="800.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">7</text>
+<path d="M190,468 L190,758 L270,758 L270,786" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="270,786 264.5,776.0 275.5,776.0" fill="#7B8798"/>
+<path d="M590,736 L590,786" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="590,786 584.5,776.0 595.5,776.0" fill="#7B8798"/>
+<rect x="140" y="938" width="500" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="178" cy="994.0" r="22" fill="#4A78C8"/>
+<g transform="translate(178,994.0) scale(1.0)"><rect x="-10" y="-11" width="20" height="6" rx="2" fill="#FFFFFF"/><rect x="-10" y="-3" width="20" height="6" rx="2" fill="#FFFFFF"/><rect x="-10" y="5" width="20" height="6" rx="2" fill="#FFFFFF"/></g>
+<text x="214" y="966" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Knowledge objects: one record per slide</text>
+<text x="214" y="986" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Each record holds the slide text, a description of any diagram,</text>
+<text x="214" y="1002" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">what was said while it was shown, and the exact times.</text>
+<text x="214" y="1038" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">knowledge_objects.json</text>
+<circle cx="144" cy="942" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="144" y="946.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">8</text>
+<path d="M390,910 L390,932" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="390,932 384.5,922.0 395.5,922.0" fill="#7B8798"/>
+<text x="390" y="1088" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12" font-weight="normal" fill="#4D5A6D" text-anchor="middle">The small text under each step names the tool or the file behind it.</text>
+</svg>

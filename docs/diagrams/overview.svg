@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="984" height="422" viewBox="0 0 984 422" role="img" aria-label="The whole system in three parts: A understand the lecture, B get ready to search, C answer a question.">
+<title>The whole system in three parts: A understand the lecture, B get ready to search, C answer a question.</title>
+<rect x="0.5" y="0.5" width="983" height="421" rx="16" fill="#FFFFFF" stroke="#D8DEE8"/>
+<rect x="24" y="24" width="280" height="250" rx="16" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
+<circle cx="30" cy="30" r="14" fill="#2A4F8C" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="30" y="34.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">A</text>
+<circle cx="164.0" cy="86" r="32" fill="#4A78C8"/>
+<g transform="translate(164.0,86) scale(1.4545454545454546)"><rect x="-11" y="-7" width="15" height="14" rx="3" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4,-2 L11,-6 L11,6 L4,2 Z" fill="#FFFFFF"/></g>
+<text x="164.0" y="148" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="17.5" font-weight="bold" fill="#1F2A37" text-anchor="middle">Understand the lecture</text>
+<text x="164.0" y="172" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">Listen to the speech, look at the</text>
+<text x="164.0" y="190" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">slides, and pair the two up.</text>
+<rect x="38" y="218" width="252" height="1.5" rx="0" fill="#D8DEE8"/>
+<text x="42" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#2A4F8C">IN</text>
+<text x="72" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2A37">a lecture video</text>
+<text x="42" y="261" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#2A4F8C">OUT</text>
+<text x="72" y="261" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2A37">knowledge objects (1 per slide)</text>
+<rect x="352" y="24" width="280" height="250" rx="16" fill="#FFFFFF" stroke="#2E9C85" stroke-width="2"/>
+<circle cx="358" cy="30" r="14" fill="#176654" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="358" y="34.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">B</text>
+<circle cx="492.0" cy="86" r="32" fill="#2E9C85"/>
+<g transform="translate(492.0,86) scale(1.4545454545454546)"><ellipse cx="0" cy="-7" rx="9" ry="3.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-9,-7 V7 A9,3.5 0 0 0 9,7 V-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-9,0 A9,3.5 0 0 0 9,0" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="492.0" y="148" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="17.5" font-weight="bold" fill="#1F2A37" text-anchor="middle">Get ready to search</text>
+<text x="492.0" y="172" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">Cut the lecture into pieces (chunks)</text>
+<text x="492.0" y="190" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">and file each one by what it is about,</text>
+<text x="492.0" y="208" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">so it can be found by meaning.</text>
+<rect x="366" y="218" width="252" height="1.5" rx="0" fill="#D8DEE8"/>
+<text x="370" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#176654">IN</text>
+<text x="400" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2A37">knowledge objects</text>
+<text x="370" y="261" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#176654">OUT</text>
+<text x="400" y="261" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2A37">a searchable database</text>
+<rect x="680" y="24" width="280" height="250" rx="16" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
+<circle cx="686" cy="30" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
+<text x="686" y="34.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C</text>
+<circle cx="820.0" cy="86" r="32" fill="#DB8A33"/>
+<g transform="translate(820.0,86) scale(1.4545454545454546)"><rect x="-11" y="-9" width="22" height="15" rx="3" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-4,6 L-6,11 L1,6" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-6,-3 H6 M-6,1 H2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="820.0" y="148" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="17.5" font-weight="bold" fill="#1F2A37" text-anchor="middle">Answer a question</text>
+<text x="820.0" y="172" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">Find the closest chunks and write an</text>
+<text x="820.0" y="190" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">answer using only the lecture, with</text>
+<text x="820.0" y="208" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">sources.</text>
+<rect x="694" y="218" width="252" height="1.5" rx="0" fill="#D8DEE8"/>
+<text x="698" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#94500B">IN</text>
+<text x="728" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2A37">your question</text>
+<text x="698" y="261" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#94500B">OUT</text>
+<text x="728" y="261" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2A37">answer with sources</text>
+<path d="M310,149.0 L346,149.0" fill="none" stroke="#7B8798" stroke-width="3.3000000000000003" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="346,149.0 331.0,140.75 331.0,157.25" fill="#7B8798"/>
+<path d="M638,149.0 L674,149.0" fill="none" stroke="#7B8798" stroke-width="3.3000000000000003" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="674,149.0 659.0,140.75 659.0,157.25" fill="#7B8798"/>
+<text x="492.0" y="316" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="normal" fill="#1F2A37" text-anchor="middle">Like a library: first catalogue every book (A), then shelve them by topic (B), then ask the librarian a question (C).</text>
+<rect x="24" y="342" width="936" height="56" rx="14" fill="#FFFFFF" stroke="#8F99A8" stroke-width="2" stroke-dasharray="7 5"/>
+<circle cx="62" cy="370" r="18" fill="#8F99A8"/>
+<g transform="translate(62,370) scale(0.8181818181818182)"><circle cx="0" cy="0" r="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="5.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="1.8" fill="#FFFFFF"/></g>
+<text x="96" y="367" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#586577">Next (planned)</text>
+<text x="96" y="386" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Test the search with real questions, and improve it only where the test shows it falls short.</text>
+</svg>

@@ -1,8 +1,10 @@
 # Roadmap
 
-Last updated: 2026-10-06.
+Last updated: 2026-10-08.
 
 ## Where things stand
+
+**Phase 2 has a working prototype (2026-10-08).** Chunking, embeddings (bge-m3 on the GPU), an embedded Qdrant database, search, and answers with citations all work end to end on three lectures: 96 chunks are stored, `python -m src.search` finds the closest chunks, and `python -m src.ask` answers from them with sources that come from stored data. 144 tests pass. What is missing is measurement: an evaluation set is built (11 questions with known answer locations and 3 questions the lectures do not cover, kept private), but the command that runs it is not written yet, so search quality is not known. The overview is in the README, with diagrams, and the status of every Phase 2 step is in `phase2-plan.md`.
 
 **Phase 1 is complete (2026-10-06).** One lecture video becomes structured, timestamped knowledge, and it has been run on three lectures of two kinds (annotated slides with a webcam overlay, and a screen recording of live coding). One command runs all eight stages:
 
@@ -34,9 +36,20 @@ A clean slide-deck recording without annotations or a webcam has not been tried 
 
 Slides with a presenter, and code or screen demos. Whiteboard and blackboard recordings are out of scope for now.
 
-## Phase 2 (planned)
+## Phase 2 (in progress)
 
-Chunking, embeddings (local model and API, compared), vector store, retrieval with evaluation, optional reranking, cited answer generation. Details in `phase2-plan.md`.
+Done (2026-10-08): carrying the three versions of the slide text into the knowledge objects, chunking, the local embedding model with a cache, the Qdrant store with indexing as pipeline stage 10, dense search, cited answers, and an evaluation set (the questions themselves are private).
+
+Next, in this order:
+
+1. **Run the evaluation.** A command that runs every question through the search and reports hit@1, hit@3, hit@5 and mean reciprocal rank, and checks that the three questions the lectures do not cover are refused. This gives the first real numbers.
+2. **Compare the choices that are only settings today:** which slide text is embedded (decision 15), how much slide text at all (decision 20), chunk size, and cutting at slide changes (decision 19).
+3. **Keyword search merged with the meaning search** (BM25 and reciprocal rank fusion), kept only if hit@k improves.
+4. **Reranking**, only if the measurements show it helps.
+5. **The Gemini embedding provider and the comparison with bge-m3** (decision 12).
+6. **Check that cited chunks support the claims**, by reading answers or with a judge.
+
+Details and the design are in `phase2-plan.md`.
 
 ## Later
 

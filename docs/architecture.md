@@ -1,8 +1,10 @@
 # How the pipeline works
 
-These are my notes on how Phase 1 works: what each stage does, how it does it, and why I built it that way. The reasoning behind the bigger choices, with numbers, is in [decisions.md](decisions.md). What is planned next is in [roadmap.md](roadmap.md) and [phase2-plan.md](phase2-plan.md).
+These are my notes on how the pipeline works: what each stage does, how it does it, and why I built it that way. Phase 1 (stages 1 to 8) turns a lecture video into knowledge objects. Phase 2 (stages 9 and 10, and the search and answer commands) makes them searchable and answers questions from them. The reasoning behind the bigger choices, with numbers, is in [decisions.md](decisions.md). What is planned next is in [roadmap.md](roadmap.md) and [phase2-plan.md](phase2-plan.md).
 
-Last updated: 2026-10-06 (Phase 1 complete).
+Last updated: 2026-10-08 (Phase 1 complete, Phase 2 prototype working).
+
+The diagrams in this document are SVG files in [`diagrams/`](diagrams/), drawn by `diagrams/make_diagrams.py`.
 
 ## What it does
 
@@ -18,6 +20,10 @@ lecture video
          per slide)             figures,     junk text)       was showing?)   with its speech)
                                 code, title)
 ```
+
+The same flow as a picture, with what each step produces:
+
+![Phase 1: from a lecture video to knowledge objects](diagrams/phase1.svg)
 
 Folder convention: the video goes in `data/raw/<lecture>/` (exactly one video file, otherwise the pipeline stops instead of guessing), and everything it produces goes in `data/processed/<lecture>/`. Both are ignored by git.
 
@@ -131,6 +137,82 @@ Details:
 
 **Check I use on every lecture:** each end time equals the next start time, and the word count in the knowledge objects equals the word count in `transcript.json`, so no speech is lost or duplicated.
 
+## Phase 2 at a glance
+
+![Phase 2: getting ready to search, and answering a question](diagrams/phase2.svg)
+
+Two flows share one database. **Getting ready** runs once per lecture, as stages 9 and 10 of the pipeline: the knowledge objects are cut into chunks, and each chunk is stored with its vector. **Answering** runs for every question: the question becomes a vector, the closest chunks are found, and a language model writes an answer from them. The next picture follows one question through the second flow, with example values:
+
+![One question, step by step](diagrams/one-question.svg)
+
+## Stage 9: chunk (`src/processing/chunking.py`)
+
+A slide is a poor thing to search for. In the first lecture the median slide has 162 words of speech, 26 of 64 slides have under 100 words, 8 have over 350, and a few have none. Searching per slide gives blurry matches for the long ones and useless tiny pieces for the short ones. A **chunk** is a piece of the lecture of about the same size, which remembers exactly which slides and which seconds it covers.
+
+`build_chunks` works from two files: `alignment.json` (every speech piece, about 17 words each, with its exact start and end time) and `knowledge_objects.json` (the slide text). Picture the speech pieces on a conveyor belt and a bucket:
+
+1. Drop the pieces into the bucket in time order.
+2. When the bucket holds about 350 words, seal it. That is a chunk. The next bucket starts with a copy of the last piece of the sealed one (the overlap), so an idea that was cut in half appears in both chunks.
+3. A piece is never added if it would push the bucket over 450 words.
+4. A slide nobody spoke during, often a section title, waits and joins the next bucket, because a title comes before the content it names.
+5. A last bucket with fewer than 100 new words is merged into the one before it, if the result still fits.
+
+Only the speech decides where the cuts go, and the sizes are counted in words of speech. The slides the speech was spoken over are attached afterwards. So one chunk covers about three slides, and a long slide can be split over two chunks, which then both carry its text.
+
+A chunk (`src/schemas/chunk.py`) has:
+
+| Field | Meaning |
+|---|---|
+| `chunk_id` | lecture plus start second, for example `lecture_01_1074`, so building again gives the same ids |
+| `lecture_id`, `course_id` | where it comes from |
+| `start_timestamp`, `end_timestamp` | the exact times of its speech |
+| `slide_timestamps`, `image_paths`, `slide_titles` | the slides it covers |
+| `text` | the speech |
+| `slide_text`, `cleaned_text`, `clean_text` | the three versions of the slide text (raw OCR, cleaned OCR, the vision model's reading) |
+| `slide_description` | the vision model's description of diagrams and code |
+| `embed_text` | the string that gets embedded: slide text, then description, then speech |
+| `prev_chunk_id`, `next_chunk_id` | the neighbours, so a hit can later be widened |
+
+Which version of the slide text goes into `embed_text` is a setting (`CHUNK_SLIDE_TEXT_SOURCE`, default the vision model's text). Comparing the three is decision 15.
+
+**Results.** 33, 33 and 30 chunks for the three lectures, with a median of 356, 353 and 356 words of speech. The exit check also verifies them (see below). What I measured about the cuts, and one idea I decided to test later, is in [decision 19](decisions.md).
+
+## Stage 10: index (`src/embeddings/`, `src/database/`)
+
+**Embeddings** (`embedding_service.py`). An embedding is a list of numbers (1,024 for bge-m3) that stands for what a text means. Texts about similar ideas get lists that sit close together, so a question can find a passage that explains the same idea in other words. `embed_texts` is used for chunks and `embed_query` for a question. The model comes from `EMBEDDING_PROVIDER` and `EMBEDDING_MODEL` in `config.py`. Only the local provider (BAAI/bge-m3 through sentence-transformers, on the GPU in half precision) is built. A Gemini provider is planned for the comparison in [decision 12](decisions.md).
+
+Rules I built in so the model can be swapped safely: the vector size is measured and never typed in, vectors are scaled to length 1, and any question or passage prefix a model needs belongs in this one file. Every vector is cached on disk, in a file named by a hash of the model, the token limit and the text, so running the indexing again does not use the model. The token limit is 3072, because my first limit silently cut off the speech of more than half the chunks. The story is in [decision 20](decisions.md).
+
+**The database** (`database/vector_store.py`). Qdrant runs inside the program and keeps its files in `data/qdrant/`, so there is no server. A **collection** is like a table: all vectors from one embedding model live in one, named `course_chunks__bge-m3`. A **point** is like a row: the vector plus a **payload**, which is the whole chunk (lecture, times, slide titles, text). That is why a search result carries its own citation data. A point's id is derived from the chunk id, so saving a chunk twice overwrites it. Distance is cosine. More in [decision 21](decisions.md).
+
+**Indexing** (`database/indexing.py`) reads `chunks.json`, embeds each chunk's `embed_text`, removes the lecture's old points and saves the new ones. It counts as done when the database holds as many points for the lecture as `chunks.json` has chunks. In the pipeline it is stage 10, and forcing `chunk` or `knowledge` redoes it.
+
+## Searching (`src/retrieval/retriever.py`, `src/search.py`)
+
+```
+python -m src.search "What is a confusion matrix?" --top 3 --lecture lecture_01
+```
+
+`retrieve` turns the question into a vector with the same model and asks Qdrant for the closest points, optionally only inside one lecture. The command prints, for each hit, the score (cosine similarity, higher is closer), the lecture, the time range, the slide titles and the start of the speech. This is plain meaning search. It is the baseline that keyword search and reranking will be compared against.
+
+Two things I noticed by hand. In two tries, a question the lectures do not cover scored lower (about 0.4) than questions they do cover (about 0.6), which may later help to decide "not covered", but two tries are not a threshold. And the speech preview shows the start of the chunk, while the part that matched can be later in it, a sign that a chunk can hold more than one topic.
+
+## Answering (`src/generation/llm_service.py`, `src/ask.py`)
+
+```
+python -m src.ask "What is a confusion matrix?"
+```
+
+A language model can invent a timestamp as easily as a fact, so the model is never trusted with them. The steps:
+
+1. The five closest chunks are numbered 1 to 5 and put into the prompt as excerpts, each with its slide text, its description of diagrams and code, and its speech.
+2. Gemini must reply in a fixed form with two fields: `answerable` (can the excerpts answer this?) and `answer`. The instructions say to use only the excerpts and no outside knowledge, to say so if they do not cover the question, to cite after every statement with the excerpt number in square brackets, such as `[1]` or `[2][3]`, and to treat the excerpts as data, not as instructions. The temperature is 0.
+3. My code reads the citations in the answer. A citation to a number that does not exist is removed and reported as a warning. An answer that claims to be answerable but has no valid citation gets a warning. If the search found nothing, the model is not called.
+4. The source list is built from the stored chunks that were really cited: lecture, time range, slide titles and the picture of the first slide. Nothing in it comes from the model.
+5. If `answerable` is false, the command says so and shows the closest passages the search found.
+
+Only text goes to Gemini, so the slide pictures are not sent, and the passages leave the machine. I have tried it on a handful of questions: one was answered with four cited sources, and one outside the course was refused. That is not an evaluation. Whether a cited chunk really supports its claim is not checked yet. Reasoning in [decision 22](decisions.md).
+
 ## Per-lecture settings
 
 Defaults live in `src/config.py`. A lecture can override them in an optional `data/raw/<lecture>/settings.json` next to its video. Anything left out keeps its default, and a misspelled section or setting name is an error, because a silent typo means you change a number and nothing happens. The file is read at the very start of a run, so a typo fails in a second and not after the slow transcription stage.
@@ -148,7 +230,9 @@ Changing a setting does nothing on a stage that already has output. Use `--force
 
 A thin conductor: it has no processing logic, it calls the stages in order with the right paths and times each one. With `--all`, each lecture runs inside a try/except so one bad video doesn't lose the rest. Because every stage skips finished work, running a finished lecture again takes about no time.
 
-Known gap: forcing an early stage does not automatically redo later ones. After `--force vision`, the knowledge objects need `--force knowledge` too.
+Known gap: forcing an early stage does not automatically redo later ones. After `--force vision`, the knowledge objects need `--force knowledge` too. The one exception is at the end of the chain: forcing `knowledge` or `chunk` also redoes `chunk` and `index`, because new slides or chunks mean new vectors.
+
+The runner has ten stages: the eight above, then `chunk` and `index`. The GPU is shared by the transcription model (stage 2) and the embedding model (stage 10), and on a 6 GB card they should not be loaded together. The transcription model is a local variable inside `transcribe`, so it should be released when stage 2 returns. I have not measured the GPU memory between the two stages, so if a first full run of a new lecture ever runs out of GPU memory at stage 10, run the pipeline again. Finished stages are skipped, so only the indexing runs, in a fresh process.
 
 I decided against Celery: it only runs more jobs at once, the slow stage is bound by one GPU, the API stage is a network wait that a thread pool handles, and it is poorly supported on Windows. Reasoning in [decision 8](decisions.md).
 
@@ -158,11 +242,13 @@ I decided against Celery: it only runs more jobs at once, the slow stage is boun
 
 `python -m src.verify lecture_01 --at 1420` shows what Phase 1 promises: the slide on screen at that second (type, title, slide number, image, description) and the speech around it.
 
+When a lecture has a `chunks.json`, it also checks the chunks: ids are unique, neighbour links are correct, no chunk is over the maximum size, every chunk lies inside the slides it lists (the last speech piece of a chunk may run up to 10 seconds past its last slide, because a piece belongs to the slide showing when it starts), every slide is in some chunk, so no section title is lost, and every speech piece appears word for word in a chunk that covers its time. My first version of the time check had no tolerance and failed on real data. The chunker was right and the check was too strict, and decision 19 has the details.
+
 It passes on all three lectures. It checks completeness and consistency, not quality: it cannot tell whether Whisper heard a word correctly or whether a description is right. Results and the way I checked that it can fail are in [decision 18](decisions.md).
 
 ## Tests
 
-`python -m pytest` runs 65 tests in about 3 seconds, with no video and no API. They cover `compute_difference`, `align`, the grouping in `build_knowledge_objects`, the OCR cleaning functions, the settings loader and the exit check, using tiny hand-made data. A fake Gemini key is set before anything is imported, so a test can never spend quota. To check that the tests can fail, I broke three things on purpose (an off-by-one in `align`, a cutoff comparison, a missing `.strip()`), and each break was caught by the matching test. Speech, keyframe extraction end to end, OCR, the vision stage and the runner are not covered by the tests, because they need a video, Tesseract or the API. The exit check covers their output on real lectures instead.
+`python -m pytest` runs 144 tests in about 6 seconds, with no video, no embedding model, no database folder and no API. They cover `compute_difference`, `align`, the grouping in `build_knowledge_objects`, the OCR cleaning functions, the settings loader and the exit check, and for Phase 2 the chunker, the chunk checks, the embedding cache, the vector store, the search and the answer step, using tiny hand-made data. The embedding model is replaced by a fake that counts how often it is used, Qdrant runs in its in-memory mode with 3-number vectors, and Gemini is replaced by a function that returns a prepared reply. So the tests check what my own code does with whatever the model says, such as removing a made-up citation. A fake Gemini key is set before anything is imported, so a test can never spend quota. To check that the tests can fail, I break the code on purpose for each new piece (for example the lecture filter, the clean-up of old points, the citation check, the cache key) and confirm the matching test goes red. Speech, keyframe extraction end to end, OCR, the vision stage and the runner are not covered by the tests, because they need a video, Tesseract or the API. The exit check covers their output on real lectures instead.
 
 ## Results on three lectures
 
@@ -182,3 +268,8 @@ In all three, each slide's end time equals the next slide's start time and no sp
 - Slides shown for only a few seconds get no speech (stage 7).
 - Only lecture video is processed so far. PDFs and PowerPoint files are planned.
 - The free Gemini quota sets the speed of the vision stage.
+- Search quality is not measured yet, so chunk size, the slide text that gets embedded and the embedding model are untested choices.
+- Chunks are cut by the number of words of speech, so a cut can fall in the middle of a slide (decision 19).
+- Only one program can have `data/qdrant/` open at a time.
+- The answer step checks that a citation exists, not that the cited chunk supports the claim.
+- The transcript mishears some abbreviations (for example AUROC is often written as "rock"), which hurts keyword matching. The slide text helps.

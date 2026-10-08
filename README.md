@@ -4,13 +4,23 @@ A learning project: an assistant that understands a whole university course (lec
 
 I'm building it one stage at a time and writing down why I made each choice. The reasoning and the measured results are in [`docs/`](docs/).
 
+## How it works
+
+![The whole system in three steps: understand the lecture, get ready to search, answer a question](docs/diagrams/overview.svg)
+
+1. **Understand the lecture.** A lecture video is turned into one record per slide: what was on the slide, what was said while it was shown, and exact times (Phase 1, [diagram](docs/diagrams/phase1.svg)).
+2. **Get ready to search.** The lecture is cut into pieces of about 350 words, and every piece is stored in a small local database by its meaning (Phase 2, [diagram](docs/diagrams/phase2.svg)).
+3. **Answer a question.** The pieces closest in meaning to the question are found, a language model writes an answer from those pieces only, and each source is shown with its lecture, time range and slide titles ([one question, step by step](docs/diagrams/one-question.svg)).
+
 ## Status
 
 **Phase 1 is complete: a lecture video becomes structured, timestamped knowledge.** It has been run on three lectures of two different kinds (annotated slides with a webcam overlay, and a screen recording of live coding). An exit check, `python -m src.verify --all`, passes on all three: every piece of speech is matched to the slide on screen, and no speech is lost.
 
-**Phase 2 is planned, not started:** chunking, embeddings, a vector database, retrieval with an evaluation set, and cited answers. The design is in [`docs/phase2-plan.md`](docs/phase2-plan.md).
+**Phase 2 has a working prototype (2026-10-08): chunking, embeddings, a vector database, search, and answers with citations.** All three lectures are indexed (96 chunks), and `python -m src.ask "your question"` answers from them. I have tried it on a handful of questions by hand, and it has **not been evaluated yet**. A set of questions with known answer locations is built (it stays private, because the questions come from course material), and measuring the search with it is the next step. Reranking, keyword search and the comparison of embedding models are still planned. The design and progress are in [`docs/phase2-plan.md`](docs/phase2-plan.md).
 
 ## What the pipeline does
+
+![Phase 1: from a lecture video to knowledge objects](docs/diagrams/phase1.svg)
 
 ```
 video --> audio --> transcript (speech with timestamps) -----------------.
@@ -28,10 +38,21 @@ video --> audio --> transcript (speech with timestamps) -----------------.
 6. **Clean:** interface text (menus) and low-confidence garbage are removed from the OCR text.
 7. **Align:** each piece of speech is matched to the slide that was on screen.
 8. **Knowledge objects:** one JSON record per slide, with its text, description, speech and exact start and end times.
+9. **Chunk:** the speech is cut into chunks of about 350 words, each with the slides shown meanwhile and its exact times.
+10. **Index:** each chunk is turned into 1,024 numbers by an embedding model (bge-m3, on the GPU) and stored in Qdrant, an embedded vector database, next to its times and slide titles.
+
+Then, for every question:
+
+![Phase 2: getting ready to search, and answering a question](docs/diagrams/phase2.svg)
+
+- **Search** (`python -m src.search`): the question is turned into numbers by the same model, and Qdrant returns the five chunks whose numbers are closest.
+- **Answer** (`python -m src.ask`): Gemini gets those five chunks as numbered excerpts and may only answer from them. It cites excerpt numbers, never times. My code checks the numbers and builds the source list from the stored chunk data, so a source can't be invented.
 
 Every stage reads files and writes files, so each result can be opened and checked. How each stage works, and why, is in [`docs/architecture.md`](docs/architecture.md).
 
 ## Results so far
+
+Phase 1, on three lectures:
 
 | | Length | Keyframes | Words in transcript = knowledge objects |
 |---|---|---|---|
@@ -39,7 +60,17 @@ Every stage reads files and writes files, so each result can be opened and check
 | Lecture 2: same style | 92 min | 67 | 11,192 |
 | Lecture 3: public code screencast | 51 min | 73 | 10,051 |
 
-A lecture takes about 10 minutes end to end on a laptop GPU. The vision stage is limited by the free API quota (15 requests per minute). Measured details are in [`docs/decisions.md`](docs/decisions.md).
+A lecture takes about 10 minutes end to end on a laptop GPU. The vision stage is limited by the free API quota (15 requests per minute).
+
+Phase 2, chunking and indexing:
+
+| | Chunks | Words of speech per chunk (smallest / median / largest) |
+|---|---|---|
+| Lecture 1 | 33 | 295 / 356 / 367 |
+| Lecture 2 | 33 | 139 / 353 / 360 |
+| Lecture 3 | 30 | 244 / 356 / 370 |
+
+All 96 chunks are embedded and stored (2.1 MB). Measured details, and a mistake I made with the embedding model's input limit, are in [`docs/decisions.md`](docs/decisions.md).
 
 ## Setup
 
@@ -49,19 +80,49 @@ You need Python 3.11, [FFmpeg](https://ffmpeg.org/) and [Tesseract](https://gith
 pip install -r requirements.txt
 ```
 
-Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY` (and `TESSERACT_CMD` if Tesseract is not on your PATH). Speech recognition is currently set to run on an NVIDIA GPU, which also needs the cuBLAS and cuDNN libraries on the PATH. Running without a GPU needs a small change in `src/processing/speech.py`.
+On Windows, pip installs a CPU-only PyTorch. For the GPU, install the CUDA build first:
+
+```
+pip install torch --index-url https://download.pytorch.org/whl/cu128
+```
+
+Copy `.env.example` to `.env` and fill in `GEMINI_API_KEY` (and `TESSERACT_CMD` if Tesseract is not on your PATH). Speech recognition is currently set to run on an NVIDIA GPU, which also needs the cuBLAS and cuDNN libraries on the PATH. Running without a GPU needs a small change in `src/processing/speech.py`. The first time the embedding model runs, it downloads about 2 GB.
 
 ## Running it
 
 Put one video in `data/raw/<lecture_name>/`, then from the project root:
 
 ```
-python -m src.pipeline lecture_01                  # one lecture
+python -m src.pipeline lecture_01                  # one lecture, all ten stages
 python -m src.pipeline --all                       # every folder in data/raw/
 python -m src.pipeline lecture_01 --force vision   # redo a stage
 ```
 
-Results appear in `data/processed/<lecture_name>/`, and the main one is `knowledge_objects.json`. Finished stages are skipped, so running again is quick.
+Results appear in `data/processed/<lecture_name>/`: `knowledge_objects.json` from Phase 1 and `chunks.json` from stage 9. The vectors go into `data/qdrant/`. Finished stages are skipped, so running again is quick. Only one program can have `data/qdrant/` open at a time.
+
+Search and ask, after at least one lecture is indexed:
+
+```
+python -m src.search "What is a confusion matrix?"                  # the five closest chunks
+python -m src.search "What is a confusion matrix?" --lecture lecture_01 --top 3
+python -m src.ask "What is a confusion matrix?"                     # an answer with sources
+```
+
+The shape of an answer (the wording here is only an illustration):
+
+```
+Question: What is a confusion matrix?
+
+A confusion matrix counts the four ways a classifier can be right or wrong. [1][2]
+
+Sources:
+[1] lecture_01 | 12:31 - 15:06 | <slide titles>
+     slide image: data/processed/lecture_01/keyframes/<frame>.jpg
+[2] lecture_01 | 14:58 - 18:03 | <slide titles>
+     slide image: data/processed/lecture_01/keyframes/<frame>.jpg
+```
+
+If the lectures do not cover the question, the answer says so and shows the closest passages the search found.
 
 To check a finished lecture, or look up what was on screen and said at any second:
 
@@ -78,7 +139,7 @@ A lecture can have its own settings in an optional `data/raw/<lecture_name>/sett
 python -m pytest
 ```
 
-65 tests run in about 3 seconds, with no video and no API calls.
+144 tests run in about 6 seconds, with no video, no embedding model, no database folder and no API calls.
 
 ## Repository layout
 
@@ -87,17 +148,34 @@ src/
   pipeline.py          runs all stages for one lecture or all lectures
   config.py            settings and defaults
   lecture_settings.py  per-lecture settings.json
-  verify.py            the Phase 1 exit check
+  verify.py            the exit check (Phase 1 files and chunks)
+  search.py            command: the five closest chunks for a question
+  ask.py               command: a cited answer to a question
   ingestion/           audio extraction
-  processing/          speech, keyframes, OCR, vision, cleanup, alignment, knowledge objects
+  processing/          speech, keyframes, OCR, vision, cleanup, alignment, knowledge objects, chunking
+  embeddings/          turning text into vectors (with a disk cache)
+  database/            the Qdrant store and the indexing stage
+  retrieval/           from a question to the closest chunks
+  generation/          the answer step: prompt, citation check, sources
   schemas/             the data shapes passed between stages
 tests/                 automated tests
 docs/                  architecture notes, decision log, roadmap, Phase 2 plan
+docs/diagrams/         the diagrams above (SVG) and the script that draws them
 ```
 
 ## Limits to know about
 
+- **Search quality is not measured yet.** Chunk size, which slide text is embedded, and the choice of embedding model are all settings I will compare once the evaluation runs.
 - Only lecture video is processed so far. PDFs and PowerPoint files are planned.
-- Whisper runs on an NVIDIA GPU as configured.
+- Whisper runs on an NVIDIA GPU as configured, and the embedding model also uses the GPU (about 2.7 GB at peak; never run both at once on a 6 GB card).
 - OCR is weak on terminal and code text, so for code the vision model's text is the useful source.
-- Course material is copyrighted, so no lecture videos, slides, transcripts or images are in this repository. The `data/` folder is ignored by git.
+- The answer step sends the chunk text to Gemini, so those passages leave the machine. The slide pictures are not sent.
+- Course material is copyrighted, so no lecture videos, slides, transcripts, images or evaluation questions are in this repository. The `data/` folder is ignored by git.
+
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md): how each stage works, in the order the data flows
+- [`docs/decisions.md`](docs/decisions.md): why I chose what I chose, with the numbers
+- [`docs/phase2-plan.md`](docs/phase2-plan.md): the Phase 2 design and where it stands
+- [`docs/roadmap.md`](docs/roadmap.md): what is done and what is next
+- [`docs/diagrams/`](docs/diagrams/): the diagrams as SVG files, and `make_diagrams.py` to redraw them
