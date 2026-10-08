@@ -33,7 +33,9 @@ from src.evaluate import (
     split_by_type,
     summarize_results,
 )
+from src import evaluate
 from src.retrieval import retriever
+from src.schemas.answer import FinalAnswer
 from src.schemas.chunk import Chunk, SearchResult
 
 
@@ -298,6 +300,95 @@ def test_the_summary_marks_which_results_are_hits():
 def test_the_summary_without_an_item_has_no_hit_flag():
     summary = summarize_results([make_result("c")], None)
     assert "hit" not in summary[0]
+
+
+# --- answers: a failing Gemini call must not end the whole run ---
+
+def make_final_answer(question, answerable=True, sources=None):
+    if sources is None:
+        sources = []
+    return FinalAnswer(
+        question=question,
+        answerable=answerable,
+        text="an answer",
+        sources=sources,
+        source_numbers=list(range(1, len(sources) + 1)),
+        warnings=[],
+    )
+
+
+@pytest.fixture
+def no_waiting(monkeypatch):
+    # The tests must not really wait between tries
+    waits = []
+    monkeypatch.setattr(evaluate.time, "sleep", lambda seconds: waits.append(seconds))
+    return waits
+
+
+def test_a_failing_answer_call_is_tried_again_after_waiting(monkeypatch, no_waiting):
+    calls = []
+
+    def flaky_answer(question, results):
+        calls.append(question)
+        if len(calls) < 3:
+            raise RuntimeError("high demand")
+        return make_final_answer(question)
+
+    monkeypatch.setattr(evaluate, "answer_question", flaky_answer)
+
+    final = evaluate.answer_with_patience("q", [])
+
+    assert final is not None
+    assert len(calls) == 3
+    assert no_waiting == evaluate.ANSWER_RETRY_WAITS[:2]
+
+
+def test_the_answer_call_gives_up_after_the_last_wait(monkeypatch, no_waiting):
+    calls = []
+
+    def always_failing(question, results):
+        calls.append(question)
+        raise RuntimeError("high demand")
+
+    monkeypatch.setattr(evaluate, "answer_question", always_failing)
+
+    assert evaluate.answer_with_patience("q", []) is None
+    # the first try plus one try after each wait
+    assert len(calls) == len(evaluate.ANSWER_RETRY_WAITS) + 1
+    assert no_waiting == evaluate.ANSWER_RETRY_WAITS
+
+
+def test_a_question_whose_answer_fails_is_recorded_and_the_run_goes_on(monkeypatch, no_waiting):
+    items = [
+        {"id": "a1", "question": "first", "answerable": True, "lecture": "lecture_a", "answer_ranges": [[50, 80]]},
+        {"id": "a2", "question": "second", "answerable": True, "lecture": "lecture_a", "answer_ranges": [[50, 80]]},
+        {"id": "u1", "question": "third", "answerable": False, "lecture": None, "answer_ranges": []},
+    ]
+    hit_result = make_result("hit", start=40, end=90)
+    all_results = {"a1": [hit_result], "a2": [hit_result], "u1": [hit_result]}
+    answerable_rows = [{"id": "a1"}, {"id": "a2"}]
+    unanswerable_rows = [{"id": "u1"}]
+
+    def answer(question, results):
+        if question == "first":
+            raise RuntimeError("high demand")
+        if question == "second":
+            return make_final_answer(question, answerable=True, sources=[hit_result])
+        return make_final_answer(question, answerable=False)
+
+    monkeypatch.setattr(evaluate, "answer_question", answer)
+
+    totals = evaluate.run_answers(items, all_results, answerable_rows, unanswerable_rows)
+
+    assert answerable_rows[0]["generated_answerable"] is None
+    assert answerable_rows[0]["cites_right_place"] is False
+    assert answerable_rows[1]["generated_answerable"] is True
+    assert answerable_rows[1]["cites_right_place"] is True
+    assert unanswerable_rows[0]["generated_answerable"] is False
+    assert totals["answer_errors"] == 1
+    assert totals["answerable_citing_right_place"] == 1
+    assert totals["unanswerable_refused"] == 1
+    assert totals["answerable_wrongly_refused"] == 0
 
 
 # --- files ---

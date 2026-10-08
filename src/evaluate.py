@@ -39,6 +39,11 @@ HIT_K_VALUES = [1, 3, 5, 10]
 # How many results the answer step reads. Same default as `python -m src.ask`.
 ANSWER_TOP_K = 5
 
+# The answer step already retries a failed Gemini call a few times, quickly. When Gemini stays
+# overloaded for longer, one failed question must not end a run of 40 questions: the evaluation
+# waits this many seconds after each failure and tries again, and records an error at the end.
+ANSWER_RETRY_WAITS = [20, 40, 80]
+
 
 # ---------------------------------------------------------------------------
 # Pure helpers (no database, no model): these are the ones covered by tests
@@ -350,6 +355,25 @@ def run_retrieval(items: list, top_k: int, client) -> tuple:
     return answerable_rows, unanswerable_rows, all_results
 
 
+def answer_with_patience(question: str, results: list):
+    # Writes the answer, waiting and trying again when the Gemini call keeps failing.
+    # Returns the FinalAnswer, or None when every try failed (the caller records an error).
+    attempt = 0
+
+    while True:
+        try:
+            return answer_question(question, results)
+        except Exception as error:
+            if attempt >= len(ANSWER_RETRY_WAITS):
+                print(f"  giving up on this question: {error}")
+                return None
+
+            wait = ANSWER_RETRY_WAITS[attempt]
+            print(f"  the answer step failed, waiting {wait}s before trying again...")
+            time.sleep(wait)
+            attempt = attempt + 1
+
+
 def run_answers(items: list, all_results: dict, answerable_rows: list, unanswerable_rows: list) -> dict:
     # Writes an answer for every question with Gemini (one call each) and records what happened.
     # The answers are added to the rows. Returns the totals.
@@ -366,9 +390,19 @@ def run_answers(items: list, all_results: dict, answerable_rows: list, unanswera
 
         results = all_results[item["id"]][:ANSWER_TOP_K]
         print(f"  answering {item['id']} ({i + 1} of {len(items)})...")
-        final = answer_question(item["question"], results)
+        final = answer_with_patience(item["question"], results)
 
         row = rows_by_id[item["id"]]
+
+        # Every try failed: record it as an error and go on with the next question
+        if final is None:
+            row["generated_answerable"] = None
+            row["generated_answer"] = "(no answer: the Gemini call kept failing)"
+            row["generated_warnings"] = []
+            if item["answerable"]:
+                row["cites_right_place"] = False
+            continue
+
         row["generated_answerable"] = final.answerable
         row["generated_answer"] = final.text
         row["generated_warnings"] = final.warnings
@@ -381,17 +415,22 @@ def run_answers(items: list, all_results: dict, answerable_rows: list, unanswera
                     cites_right_place = True
             row["cites_right_place"] = cites_right_place
 
-    # Totals
+    # Totals (a question whose answer failed counts as neither refused nor answered)
     refused_correctly = 0
+    answer_errors = 0
     for row in unanswerable_rows:
         if row["generated_answerable"] is False:
             refused_correctly = refused_correctly + 1
+        if row["generated_answerable"] is None:
+            answer_errors = answer_errors + 1
 
     wrongly_refused = 0
     cited_right_place = 0
     for row in answerable_rows:
         if row["generated_answerable"] is False:
             wrongly_refused = wrongly_refused + 1
+        if row["generated_answerable"] is None:
+            answer_errors = answer_errors + 1
         if row["cites_right_place"]:
             cited_right_place = cited_right_place + 1
 
@@ -401,6 +440,7 @@ def run_answers(items: list, all_results: dict, answerable_rows: list, unanswera
         "answerable_wrongly_refused": wrongly_refused,
         "answerable_citing_right_place": cited_right_place,
         "answerable_total": len(answerable_rows),
+        "answer_errors": answer_errors,
     }
 
 
@@ -524,6 +564,8 @@ def print_answers(items: list, answerable_rows: list, unanswerable_rows: list, t
     print(f"  questions without an answer that were refused: {totals['unanswerable_refused']} of {totals['unanswerable_total']}")
     print(f"  questions with an answer that were refused:    {totals['answerable_wrongly_refused']} of {totals['answerable_total']}")
     print(f"  answers that cite the right place:             {totals['answerable_citing_right_place']} of {totals['answerable_total']}")
+    if totals["answer_errors"] > 0:
+        print(f"  questions whose answer failed (Gemini errors): {totals['answer_errors']}")
     print()
 
 
