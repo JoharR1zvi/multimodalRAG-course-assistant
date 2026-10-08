@@ -1,0 +1,488 @@
+# Measures how good the search is, on questions whose answers are known.
+#
+# The evaluation file (data/eval/retrieval_eval.json) lists questions. For each answerable
+# question it says in which lecture, and between which seconds, the answer is spoken.
+# We run the real search and ask: does one of the top results cover that stretch of the lecture?
+#
+#   HIT  = a result from the right lecture whose time range overlaps an answer range
+#   rank = the position (1 = best) of the first hit in the results, or "miss" if there is none
+#
+# From the ranks we compute:
+#   hit@k = the share of questions with a hit among the top k results
+#   MRR   = the average of 1 / rank (a hit at rank 1 scores 1, rank 2 scores 0.5, a miss scores 0)
+#
+# Questions the lectures do not cover have no answer range. For those we only look at how
+# high the best score is, and (with --answers) whether the answer step refuses to answer.
+#
+# Usage (from the project root):
+#   python -m src.evaluate                     # search only, no Gemini calls
+#   python -m src.evaluate --top 5             # look at the top 5 results only
+#   python -m src.evaluate --answers           # also write answers with Gemini (about 14 calls)
+
+import argparse
+import json
+import time
+from datetime import datetime
+from pathlib import Path
+
+from src import config
+from src.database.vector_store import open_client
+from src.generation.llm_service import answer_question
+from src.retrieval.retriever import format_timestamp, retrieve
+
+# The evaluation questions. Private (course material), so the folder is git-ignored.
+DEFAULT_EVAL_FILE = "data/eval/retrieval_eval.json"
+
+# The hit@k numbers that are reported (only those not larger than --top are shown)
+HIT_K_VALUES = [1, 3, 5, 10]
+
+# How many results the answer step reads. Same default as `python -m src.ask`.
+ANSWER_TOP_K = 5
+
+
+# ---------------------------------------------------------------------------
+# Pure helpers (no database, no model): these are the ones covered by tests
+# ---------------------------------------------------------------------------
+
+def ranges_overlap(chunk_start: float, chunk_end: float, range_start: float, range_end: float) -> bool:
+    # True when the two stretches of time share at least some seconds.
+    # Two stretches that only touch (one ends exactly where the other starts) do not overlap.
+    return chunk_start < range_end and chunk_end > range_start
+
+
+def chunk_is_hit(chunk, item: dict) -> bool:
+    # Is this chunk a correct place to find the answer to this question?
+    # It must be from the right lecture AND overlap at least one answer range.
+    if chunk.lecture_id != item["lecture"]:
+        return False
+
+    for answer_range in item["answer_ranges"]:
+        range_start = answer_range[0]
+        range_end = answer_range[1]
+
+        if ranges_overlap(chunk.start_timestamp, chunk.end_timestamp, range_start, range_end):
+            return True
+
+    return False
+
+
+def find_first_hit_rank(results: list, item: dict):
+    # Position (1 = best) of the first result that is a hit, or None if no result is.
+    # results: list of SearchResult, best first.
+    for position in range(len(results)):
+        if chunk_is_hit(results[position].chunk, item):
+            return position + 1
+
+    return None
+
+
+def count_hits_at_k(ranks: list, k: int) -> int:
+    # How many questions have a hit at rank k or better (a None rank is a miss)
+    count = 0
+
+    for rank in ranks:
+        if rank is not None and rank <= k:
+            count = count + 1
+
+    return count
+
+
+def mean_reciprocal_rank(ranks: list) -> float:
+    # The average of 1 / rank over all questions; a miss counts as 0
+    if len(ranks) == 0:
+        return 0.0
+
+    total = 0.0
+
+    for rank in ranks:
+        if rank is not None:
+            total = total + 1.0 / rank
+
+    return total / len(ranks)
+
+
+def compute_metrics(ranks: list, k_values: list) -> dict:
+    # All the numbers for one group of questions
+    metrics = {"count": len(ranks)}
+
+    for k in k_values:
+        hits = count_hits_at_k(ranks, k)
+        metrics[f"hits@{k}"] = hits
+
+        if len(ranks) == 0:
+            metrics[f"hit@{k}"] = 0.0
+        else:
+            metrics[f"hit@{k}"] = hits / len(ranks)
+
+    metrics["mrr"] = mean_reciprocal_rank(ranks)
+
+    return metrics
+
+
+def split_by_completeness(rows: list) -> tuple:
+    # "full" = the lecturer answers the question completely. "partial" = only part of it is
+    # answered in the lecture, so a good result there is a partial answer.
+    full_rows = []
+    partial_rows = []
+
+    for row in rows:
+        if row["completeness"] == "partial":
+            partial_rows.append(row)
+        else:
+            full_rows.append(row)
+
+    return full_rows, partial_rows
+
+
+def summarize_results(results: list, item: dict | None = None) -> list:
+    # The search results as plain data for the saved file (and for printing)
+    summary = []
+
+    for position in range(len(results)):
+        result = results[position]
+        chunk = result.chunk
+
+        entry = {
+            "rank": position + 1,
+            "chunk_id": chunk.chunk_id,
+            "lecture_id": chunk.lecture_id,
+            "start": chunk.start_timestamp,
+            "end": chunk.end_timestamp,
+            "score": result.score,
+        }
+
+        # Only questions with a known answer can say whether a result is a hit
+        if item is not None:
+            entry["hit"] = chunk_is_hit(chunk, item)
+
+        summary.append(entry)
+
+    return summary
+
+
+def score_range(rows: list) -> tuple:
+    # (lowest, highest) best-result score over some rows, or None when no row has a result
+    scores = []
+
+    for row in rows:
+        if row["top_score"] is not None:
+            scores.append(row["top_score"])
+
+    if len(scores) == 0:
+        return None
+
+    return min(scores), max(scores)
+
+
+def load_eval_set(path: str) -> list:
+    # The list of evaluation items, exactly as written in the file
+    with open(path, "r", encoding="utf-8") as file:
+        items = json.load(file)
+
+    return items
+
+
+def settings_snapshot(top_k: int) -> dict:
+    # The settings that decide what the search can find, saved with every result so two runs
+    # can be compared later. They are read from the config; if you changed a setting without
+    # rebuilding the chunks (python -m src.pipeline --all --force chunk), they do not describe
+    # what is stored in the database.
+    return {
+        "retrieval_method": "dense",
+        "top_k": top_k,
+        "chunk_target_words": config.CHUNK_TARGET_WORDS,
+        "chunk_max_words": config.CHUNK_MAX_WORDS,
+        "chunk_overlap_segments": config.CHUNK_OVERLAP_SEGMENTS,
+        "chunk_min_last_words": config.CHUNK_MIN_LAST_WORDS,
+        "chunk_slide_text_source": config.CHUNK_SLIDE_TEXT_SOURCE,
+        "embedding_provider": config.EMBEDDING_PROVIDER,
+        "embedding_model": config.EMBEDDING_MODEL,
+        "embedding_max_tokens": config.EMBEDDING_MAX_TOKENS,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Running the evaluation
+# ---------------------------------------------------------------------------
+
+def run_retrieval(items: list, top_k: int, client) -> tuple:
+    # Searches every question once. Returns (answerable_rows, unanswerable_rows, all_results):
+    #   the rows hold the numbers for each question
+    #   all_results maps the question id to the SearchResult list (needed for --answers)
+    # The search always fetches at least ANSWER_TOP_K results, so the answer step can use them.
+    fetch_count = max(top_k, ANSWER_TOP_K)
+
+    answerable_rows = []
+    unanswerable_rows = []
+    all_results = {}
+
+    for item in items:
+        fetched = retrieve(item["question"], top_k=fetch_count, client=client)
+        all_results[item["id"]] = fetched
+
+        # The ranks and metrics only look at the top_k results
+        ranked = fetched[:top_k]
+
+        top_score = None
+        if len(ranked) > 0:
+            top_score = ranked[0].score
+
+        if item["answerable"]:
+            row = {
+                "id": item["id"],
+                "completeness": item["answer_completeness"],
+                "lecture": item["lecture"],
+                "rank": find_first_hit_rank(ranked, item),
+                "top_score": top_score,
+                "results": summarize_results(ranked, item),
+            }
+            answerable_rows.append(row)
+        else:
+            row = {
+                "id": item["id"],
+                "top_score": top_score,
+                "results": summarize_results(ranked),
+            }
+            unanswerable_rows.append(row)
+
+    return answerable_rows, unanswerable_rows, all_results
+
+
+def run_answers(items: list, all_results: dict, answerable_rows: list, unanswerable_rows: list) -> dict:
+    # Writes an answer for every question with Gemini (one call each) and records what happened.
+    # The answers are added to the rows. Returns the totals.
+    rows_by_id = {}
+    for row in answerable_rows + unanswerable_rows:
+        rows_by_id[row["id"]] = row
+
+    # Stay under the free quota of requests per minute
+    pause_seconds = 60.0 / config.GEMINI_REQUESTS_PER_MINUTE
+
+    for i, item in enumerate(items):
+        if i > 0:
+            time.sleep(pause_seconds)
+
+        results = all_results[item["id"]][:ANSWER_TOP_K]
+        print(f"  answering {item['id']} ({i + 1} of {len(items)})...")
+        final = answer_question(item["question"], results)
+
+        row = rows_by_id[item["id"]]
+        row["generated_answerable"] = final.answerable
+        row["generated_answer"] = final.text
+        row["generated_warnings"] = final.warnings
+
+        if item["answerable"]:
+            # Does the answer cite at least one chunk from the right place in the lecture?
+            cites_right_place = False
+            for source in final.sources:
+                if chunk_is_hit(source.chunk, item):
+                    cites_right_place = True
+            row["cites_right_place"] = cites_right_place
+
+    # Totals
+    refused_correctly = 0
+    for row in unanswerable_rows:
+        if row["generated_answerable"] is False:
+            refused_correctly = refused_correctly + 1
+
+    wrongly_refused = 0
+    cited_right_place = 0
+    for row in answerable_rows:
+        if row["generated_answerable"] is False:
+            wrongly_refused = wrongly_refused + 1
+        if row["cites_right_place"]:
+            cited_right_place = cited_right_place + 1
+
+    return {
+        "unanswerable_refused": refused_correctly,
+        "unanswerable_total": len(unanswerable_rows),
+        "answerable_wrongly_refused": wrongly_refused,
+        "answerable_citing_right_place": cited_right_place,
+        "answerable_total": len(answerable_rows),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Printing and saving
+# ---------------------------------------------------------------------------
+
+def format_rank(rank, top_k: int) -> str:
+    if rank is None:
+        return f"miss (not in top {top_k})"
+    return str(rank)
+
+
+def print_answerable_table(rows: list, top_k: int) -> None:
+    print("Questions with an answer in the lectures")
+    print("(rank = position of the first result that covers the answer; top = the best-scoring result)\n")
+
+    for row in rows:
+        top_text = "no results"
+        if len(row["results"]) > 0:
+            top = row["results"][0]
+            start = format_timestamp(top["start"])
+            end = format_timestamp(top["end"])
+            top_text = f"{top['lecture_id']} {start} - {end}  score {top['score']:.3f}"
+
+        rank_text = format_rank(row["rank"], top_k)
+        print(f"  {row['id']:<8} {row['completeness']:<8} rank {rank_text:<22} top: {top_text}")
+
+    print()
+
+
+def print_metrics(title: str, metrics: dict, top_k: int) -> None:
+    print(f"{title} ({metrics['count']} questions)")
+
+    if metrics["count"] == 0:
+        print("  none\n")
+        return
+
+    for k in HIT_K_VALUES:
+        if k <= top_k:
+            print(f"  hit@{k:<3} {metrics[f'hit@{k}']:.2f}   ({metrics[f'hits@{k}']} of {metrics['count']})")
+
+    print(f"  MRR     {metrics['mrr']:.3f}")
+    print()
+
+
+def print_unanswerable(rows: list, answerable_rows: list) -> None:
+    print("Questions the lectures do not cover (the best score of a search result)")
+
+    for row in rows:
+        score_text = "no results"
+        if row["top_score"] is not None:
+            score_text = f"{row['top_score']:.3f}"
+        print(f"  {row['id']:<8} top score {score_text}")
+
+    answerable_range = score_range(answerable_rows)
+    unanswerable_range = score_range(rows)
+
+    if answerable_range is not None and unanswerable_range is not None:
+        print(f"  best scores, questions with an answer:   {answerable_range[0]:.3f} to {answerable_range[1]:.3f}")
+        print(f"  best scores, questions without an answer: {unanswerable_range[0]:.3f} to {unanswerable_range[1]:.3f}")
+
+    print()
+
+
+def print_answers(items: list, answerable_rows: list, unanswerable_rows: list, totals: dict) -> None:
+    # The generated answer next to the reference answer, for a human to read
+    rows_by_id = {}
+    for row in answerable_rows + unanswerable_rows:
+        rows_by_id[row["id"]] = row
+
+    print("Generated answers (read them against the reference answers; there is no automatic judge yet)\n")
+
+    for item in items:
+        row = rows_by_id[item["id"]]
+        print(f"--- {item['id']} ---")
+        print(f"Question: {item['question']}")
+
+        if item["answerable"]:
+            print(f"Answer step said answerable = {row['generated_answerable']}, cites the right place = {row['cites_right_place']}")
+        else:
+            print(f"Answer step said answerable = {row['generated_answerable']}   (should be False)")
+
+        print("Generated:")
+        print(row["generated_answer"])
+
+        if item["answerable"]:
+            print("Reference:")
+            print(item["reference_answer"])
+
+        for warning in row["generated_warnings"]:
+            print(f"WARNING: {warning}")
+
+        print()
+
+    print("Answer step totals")
+    print(f"  questions without an answer that were refused: {totals['unanswerable_refused']} of {totals['unanswerable_total']}")
+    print(f"  questions with an answer that were refused:    {totals['answerable_wrongly_refused']} of {totals['answerable_total']}")
+    print(f"  answers that cite the right place:             {totals['answerable_citing_right_place']} of {totals['answerable_total']}")
+    print()
+
+
+def save_results(output_folder: str, record: dict) -> Path:
+    # results_<date>_<time>.json next to the evaluation file
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = Path(output_folder) / f"results_{stamp}.json"
+
+    with open(path, "w", encoding="utf-8") as file:
+        json.dump(record, file, indent=2, ensure_ascii=False)
+
+    return path
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Measure the search (and optionally the answers) on the evaluation questions.")
+    parser.add_argument("--top", type=int, default=10, help="how many results to look at per question (default 10)")
+    parser.add_argument("--answers", action="store_true", help="also write answers with Gemini (about one call per question)")
+    parser.add_argument("--eval-file", default=DEFAULT_EVAL_FILE, help="the evaluation questions (default data/eval/retrieval_eval.json)")
+    parser.add_argument("--no-save", action="store_true", help="do not write a results file")
+    args = parser.parse_args()
+
+    items = load_eval_set(args.eval_file)
+
+    # The database is opened once and shared by all searches (only one program may have it open)
+    client = open_client()
+    try:
+        answerable_rows, unanswerable_rows, all_results = run_retrieval(items, args.top, client)
+    finally:
+        client.close()
+
+    # No result for any question means nothing is indexed
+    nothing_found = True
+    for results in all_results.values():
+        if len(results) > 0:
+            nothing_found = False
+
+    if nothing_found:
+        print("Nothing found for any question. Are the lectures indexed? Run: python -m src.pipeline --all")
+        return
+
+    print(f"\nEvaluation: dense search, top {args.top}, {len(items)} questions\n")
+
+    print_answerable_table(answerable_rows, args.top)
+
+    # Metrics: all answerable questions, then the two kinds separately
+    full_rows, partial_rows = split_by_completeness(answerable_rows)
+
+    metric_groups = [
+        ("All questions with an answer", answerable_rows),
+        ("Fully answered in the lecture", full_rows),
+        ("Only partly answered in the lecture (a good result is a partial answer)", partial_rows),
+    ]
+    metrics_record = {}
+
+    for title, rows in metric_groups:
+        ranks = []
+        for row in rows:
+            ranks.append(row["rank"])
+
+        metrics = compute_metrics(ranks, HIT_K_VALUES)
+        metrics_record[title] = metrics
+        print_metrics(title, metrics, args.top)
+
+    print_unanswerable(unanswerable_rows, answerable_rows)
+
+    answer_totals = None
+    if args.answers:
+        print(f"Writing answers with Gemini ({len(items)} calls, paced under the free quota)...")
+        answer_totals = run_answers(items, all_results, answerable_rows, unanswerable_rows)
+        print()
+        print_answers(items, answerable_rows, unanswerable_rows, answer_totals)
+
+    if not args.no_save:
+        record = {
+            "created": datetime.now().isoformat(timespec="seconds"),
+            "settings": settings_snapshot(args.top),
+            "metrics": metrics_record,
+            "answerable_items": answerable_rows,
+            "unanswerable_items": unanswerable_rows,
+            "answer_totals": answer_totals,
+        }
+        path = save_results(str(Path(args.eval_file).parent), record)
+        print(f"Results saved to {path}")
+
+
+if __name__ == "__main__":
+    main()
