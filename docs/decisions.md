@@ -236,7 +236,7 @@ Fixes: `description` now comes before `content_type` in the form, so the model w
 
 **After cleaning the OCR (2026-10-06).** On the slide lectures, 92 to 97% of the cleaned OCR words are also in the model's text, so cleaned OCR is now close to it for plain slide text (decision 11). What the model adds beyond that is diagrams and formulas, which OCR cannot read. Of the three versions, the comparison at retrieval time still decides.
 
-**Status (2026-10-08).** All three versions now travel with every chunk (`slide_text`, `cleaned_text`, `clean_text`). The version that gets embedded is a setting, and the default is the vision model's text, because it is the cleanest in the samples I read. The retrieval comparison itself has not been run, because it needs the evaluation set to run first (decision 23). Decision 20 adds a second question to it: how much slide text to embed at all.
+**Status (2026-10-08).** All three versions now travel with every chunk (`slide_text`, `cleaned_text`, `clean_text`). The version that gets embedded is a setting, and the default is the vision model's text, because it is the cleanest in the samples I read. The retrieval comparison itself has not been run. The evaluation command exists now, and the baseline with the default text is in decision 24. Decision 20 adds a second question to it: how much slide text to embed at all.
 
 **What the code lecture already shows.** On a frame of a terminal session, the model's output is the terminal text line by line with indentation, and Tesseract's output for the same frame is a jumble (`Terminal”|File.|Edit:|Scrolibach)|...|npartante`). On that lecture the share of OCR words that the model's text lacks has a median of 62%, against 29-36% on the slide lectures. For code, the model's text is clearly the better source, so the open question is mostly about slide lectures.
 
@@ -370,7 +370,7 @@ So 55 of 96 chunks lost the end of their text. The embedded text starts with the
 
 **Result.** I tried two questions by hand. One was answered in four sentences with four cited sources, with real lecture names and time ranges. One question that the lectures do not cover (the weather in a city) was refused, with the three closest passages shown. 16 tests replace Gemini with a prepared reply and check what my code does with it, including a made-up citation.
 
-**What is not verified.** That a cited chunk really supports the sentence it is attached to. The code can prove a citation exists, not that it is relevant. Checking that needs the evaluation set (decision 23) and either reading the answers or a judge. Also, the slide pictures are not sent to the model, only their text and descriptions, so a question about a figure depends on the quality of its description.
+**What is not verified.** That a cited chunk really supports the sentence it is attached to. The code can prove a citation exists, not that it is relevant. Checking that needs the evaluation set (decision 23) and either reading the answers or a judge. Also, the slide pictures are not sent to the model, only their text and descriptions, so a question about a figure depends on the quality of its description. A first spot check of four answers is in decision 24.
 
 ---
 
@@ -386,4 +386,39 @@ So 55 of 96 chunks lost the end of their text. The embedded text starts with the
 
 **Reference answers.** For each item I keep a short answer written from the transcript only, and not from the internet, because the system must answer from the course. An answer from the web would measure whether the system knows the topic, and not whether it found what this lecturer said.
 
-**Status.** The set is built. The command that runs it and reports hit@1, hit@3, hit@5 and mean reciprocal rank, and checks the three refusals, is not built yet. The file stays out of this repository (it is in an ignored folder), because the questions come from course material.
+**Status.** The set is built, and `python -m src.evaluate` runs it (the first numbers are in decision 24). The file stays out of this repository (it is in an ignored folder), because the questions come from course material.
+
+---
+
+## 24. The first evaluation: how well the search finds the answer
+
+**Problem.** Until now I had tried the search and the answer step on a handful of questions by hand. Before I change any setting I need a baseline, so that every later change can be judged by the same numbers.
+
+**What I built.** `python -m src.evaluate` runs every question of the evaluation set (decision 23) through the real search over all three lectures and takes the best 10 chunks. A result is a *hit* when it comes from the right lecture and its time range shares at least one second with one of the question's answer ranges (touching at an edge does not count). The *rank* is the position of the first hit. From the ranks it reports hit@k (the share of questions that have a hit among the top k results) and mean reciprocal rank (MRR: the average of 1 divided by the rank, where a miss counts as 0), for all questions with an answer and for the fully and the partly answered ones separately. For the three questions the lectures do not cover, it prints the best score. With `--answers` it also writes an answer for every question with Gemini (one call each, paced under the free quota) and checks that those three are refused, that none of the others is, and that each answer cites a chunk from the right lecture and time range. Every run is saved with a snapshot of the settings (chunk size, which slide text is embedded, embedding model and token limit, number of results) in the ignored `data/eval/` folder, so two runs can be compared later. 22 tests cover the overlap rule, the rank finder, the metrics and the search on a tiny in-memory database. When I changed the overlap rule so that touching counted as overlapping, one test went red, as it should.
+
+**Settings measured.** Chunks of about 350 words (maximum 450, one piece of overlap), the vision model's text as the slide text (`clean_text`), bge-m3 with a limit of 3,072 tokens, dense search only, 96 chunks.
+
+**Results (2026-10-08).**
+
+| Questions | Count | hit@1 | hit@3 | hit@5 | hit@10 | MRR |
+|---|---|---|---|---|---|---|
+| All with an answer | 11 | 0.91 (10 of 11) | 1.00 | 1.00 | 1.00 | 0.939 |
+| Fully answered | 8 | 0.88 (7 of 8) | 1.00 | 1.00 | 1.00 | 0.917 |
+| Partly answered | 3 | 1.00 | 1.00 | 1.00 | 1.00 | 1.000 |
+
+The one question that was not found at rank 1 had its hit at rank 3. Its answer is spread over about 17 minutes of lecture, and the best-scoring chunk came from just before that stretch.
+
+The best result scored between 0.565 and 0.714 for the questions with an answer, and 0.403, 0.482 and 0.538 for the three without one. The two ranges nearly touch, so a cutoff on the score alone would be fragile.
+
+The answer step, in one run at temperature 0: all three questions the lectures do not cover were refused, none of the 11 others was refused, and all 11 answers cite at least one chunk from the right lecture and time range. On a partly answered question, the answer gave the part the lecture covers and said that the rest is not covered.
+
+**Reading the answers.** I read the 11 answers against my reference answers. Four of them contained details that my reference answers do not have, so for each of those I searched the five excerpts the model had been given. Three of the four were on the slides. The model reads the slide text, while I drafted the reference answers from the speech only (decision 23), so the reference answers were incomplete and the answers were not wrong. In the fourth, the statement is in the excerpts, but the lecturer makes it about a whole set of properties of the method, and the answer attaches it to the single property the question asked about and cites other excerpts than the one it comes from. So I found no invented claim and one citation that points at the wrong excerpt. This was a spot check (keyword search over the excerpts, then reading the passage around each match), not a full read of every excerpt.
+
+**What this does not show.** It is a baseline, not proof that the search is good.
+- With 11 questions, one question moves hit@1 by 9 points.
+- Several answer ranges are many minutes long and a chunk is about 3 minutes, so a hit is easy to get. hit@3 and higher are already at 1.00, so they can only show a variant getting worse. hit@1 and MRR are the numbers to watch.
+- The questions come from the exercise sheets and may be worded close to the lecture.
+- The answer step was run once.
+- A cited chunk in the right place does not prove that it supports every sentence it is attached to.
+
+**Next.** These numbers are the baseline for the comparisons planned in decisions 15, 19 and 20 (which slide text is embedded, how much of it, chunk size, cutting at slide changes), and then for keyword search merged with this search. Because the numbers are already so high, the evaluation set needs more or harder questions before it can separate close variants.

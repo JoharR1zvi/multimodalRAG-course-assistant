@@ -1,6 +1,6 @@
 # Phase 2 plan: from knowledge objects to cited answers
 
-Status: **a working prototype exists (2026-10-08), but it is not evaluated yet.** The steps below are built up to cited answers. Measuring them is next.
+Status: **a working prototype exists (2026-10-08), with a first baseline evaluation (decision 24).** The steps below are built up to cited answers, and the first measurement is done. Comparing the settings is next.
 Last updated: 2026-10-08.
 
 ## Where each step stands
@@ -9,12 +9,12 @@ Last updated: 2026-10-08.
 |---|---|---|
 | 2.0 | Carry all three versions of the slide text into the knowledge objects | Done |
 | 2.1 | Chunking, `chunks.json`, checks in the exit check | Done (decision 19) |
-| Evaluation set | Questions with known answer locations | Built, kept private. The command that runs it is not written yet (decision 23) |
+| Evaluation set | Questions with known answer locations | Built, kept private (decision 23). `python -m src.evaluate` runs it. First baseline: hit@1 0.91, MRR 0.939 on 11 questions (decision 24) |
 | 2.2 | Embeddings behind one swappable interface | The local model (bge-m3) is done. The Gemini provider is not built, so the comparison is pending (decisions 12 and 20) |
 | 2.3 | Vector store (embedded Qdrant) and indexing | Done (decision 21). Indexing is pipeline stage 10 |
-| 2.4 | Retrieval | Dense search is done (`python -m src.search`). The evaluation, keyword search with rank fusion, and the three-way slide text comparison are not done |
+| 2.4 | Retrieval | Dense search is done and has a baseline (`python -m src.search`, decision 24). Keyword search with rank fusion and the three-way slide text comparison are not done |
 | 2.5 | Reranking | Not started, and only if the evaluation shows a gain |
-| 2.6 | Cited answers | Done (`python -m src.ask`, decision 22). Whether the cited chunks support their claims is not checked yet |
+| 2.6 | Cited answers | Done (`python -m src.ask`, decision 22). All 3 questions the lectures do not cover were refused, and every answer to the 11 others cites the right place (decision 24). Whether each cited chunk supports its claim is only spot-checked so far |
 
 How the first version differs from the plan below:
 

@@ -16,7 +16,7 @@ I'm building it one stage at a time and writing down why I made each choice. The
 
 **Phase 1 is complete: a lecture video becomes structured, timestamped knowledge.** It has been run on three lectures of two different kinds (annotated slides with a webcam overlay, and a screen recording of live coding). An exit check, `python -m src.verify --all`, passes on all three: every piece of speech is matched to the slide on screen, and no speech is lost.
 
-**Phase 2 has a working prototype (2026-10-08): chunking, embeddings, a vector database, search, and answers with citations.** All three lectures are indexed (96 chunks), and `python -m src.ask "your question"` answers from them. I have tried it on a handful of questions by hand, and it has **not been evaluated yet**. A set of questions with known answer locations is built (it stays private, because the questions come from course material), and measuring the search with it is the next step. Reranking, keyword search and the comparison of embedding models are still planned. The design and progress are in [`docs/phase2-plan.md`](docs/phase2-plan.md).
+**Phase 2 has a working prototype (2026-10-08): chunking, embeddings, a vector database, search, and answers with citations.** All three lectures are indexed (96 chunks), and `python -m src.ask "your question"` answers from them. A first evaluation on 11 questions with known answer locations (the questions stay private, because they come from course material) puts the right place first for 10 of them and in the top 3 for all 11, and the three questions the lectures do not cover are refused. That is a baseline from a small set, not proof of quality ([decision 24](docs/decisions.md)). Comparing the settings, keyword search, reranking and the comparison of embedding models are still planned. The design and progress are in [`docs/phase2-plan.md`](docs/phase2-plan.md).
 
 ## What the pipeline does
 
@@ -72,6 +72,15 @@ Phase 2, chunking and indexing:
 
 All 96 chunks are embedded and stored (2.1 MB). Measured details, and a mistake I made with the embedding model's input limit, are in [`docs/decisions.md`](docs/decisions.md).
 
+Phase 2, the first evaluation of the search (meaning search only, default settings, best 10 chunks over all three lectures). A result counts as a hit when it comes from the right lecture and overlaps the time where the answer is spoken:
+
+| Questions | Count | hit@1 | hit@3 | MRR |
+|---|---|---|---|---|
+| With an answer in the lectures | 11 | 0.91 | 1.00 | 0.939 |
+| Not covered by the lectures | 3 | refused 3 of 3 | | |
+
+The answer step cited a chunk from the right place in all 11 answers. With only 11 questions and answer ranges that are often many minutes long, this is a baseline to compare changes against, not a claim that the search is good. How it was measured, and what it does not show, is in [decision 24](docs/decisions.md).
+
 ## Setup
 
 You need Python 3.11, [FFmpeg](https://ffmpeg.org/) and [Tesseract](https://github.com/tesseract-ocr/tesseract) installed, and a free Gemini API key from [Google AI Studio](https://aistudio.google.com/).
@@ -124,6 +133,15 @@ Sources:
 
 If the lectures do not cover the question, the answer says so and shows the closest passages the search found.
 
+To measure the search on your own set of questions (a JSON file at `data/eval/retrieval_eval.json`; mine stays private):
+
+```
+python -m src.evaluate                  # search only: hit@k and MRR, nothing is sent to Gemini
+python -m src.evaluate --answers        # also writes an answer for every question (one Gemini call each)
+```
+
+Each run is saved in `data/eval/` with the settings it used, so two runs can be compared.
+
 To check a finished lecture, or look up what was on screen and said at any second:
 
 ```
@@ -139,7 +157,7 @@ A lecture can have its own settings in an optional `data/raw/<lecture_name>/sett
 python -m pytest
 ```
 
-144 tests run in about 6 seconds, with no video, no embedding model, no database folder and no API calls.
+166 tests run in about 6 seconds, with no video, no embedding model, no database folder and no API calls.
 
 ## Repository layout
 
@@ -151,6 +169,7 @@ src/
   verify.py            the exit check (Phase 1 files and chunks)
   search.py            command: the five closest chunks for a question
   ask.py               command: a cited answer to a question
+  evaluate.py          command: measure the search on a set of questions with known answers
   ingestion/           audio extraction
   processing/          speech, keyframes, OCR, vision, cleanup, alignment, knowledge objects, chunking
   embeddings/          turning text into vectors (with a disk cache)
@@ -165,7 +184,7 @@ docs/diagrams/         the diagrams above (SVG) and the script that draws them
 
 ## Limits to know about
 
-- **Search quality is not measured yet.** Chunk size, which slide text is embedded, and the choice of embedding model are all settings I will compare once the evaluation runs.
+- **Search quality is measured on only 11 questions.** The first numbers are a baseline (decision 24). hit@3 and higher are already at 1.00, so I need more or harder questions before I can tell close settings apart. Chunk size, which slide text is embedded, and the choice of embedding model are the settings I will compare.
 - Only lecture video is processed so far. PDFs and PowerPoint files are planned.
 - Whisper runs on an NVIDIA GPU as configured, and the embedding model also uses the GPU (about 2.7 GB at peak; never run both at once on a 6 GB card).
 - OCR is weak on terminal and code text, so for code the vision model's text is the useful source.
