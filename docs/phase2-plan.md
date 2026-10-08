@@ -1,6 +1,6 @@
 # Phase 2 plan: from knowledge objects to cited answers
 
-Status: **a working prototype exists (2026-10-08), with a first baseline evaluation (decision 24).** The steps below are built up to cited answers, and the first measurement is done. Comparing the settings is next.
+Status: **a working prototype exists (2026-10-08), with baseline evaluations on two question sets (decisions 24 and 25).** The steps below are built up to cited answers, and the first measurements are done. Comparing the settings is next.
 Last updated: 2026-10-08.
 
 ## Where each step stands
@@ -9,12 +9,12 @@ Last updated: 2026-10-08.
 |---|---|---|
 | 2.0 | Carry all three versions of the slide text into the knowledge objects | Done |
 | 2.1 | Chunking, `chunks.json`, checks in the exit check | Done (decision 19) |
-| Evaluation set | Questions with known answer locations | Built, kept private (decision 23). `python -m src.evaluate` runs it. First baseline: hit@1 0.91, MRR 0.939 on 11 questions (decision 24) |
+| Evaluation set | Questions with known answer locations | Built, kept private (decision 23). `python -m src.evaluate` runs it. Baselines: hit@1 0.91, MRR 0.939 on the first set of 11 questions (decision 24), and hit@1 0.58, MRR 0.711 on a harder set of 36 (decision 25) |
 | 2.2 | Embeddings behind one swappable interface | The local model (bge-m3) is done. The Gemini provider is not built, so the comparison is pending (decisions 12 and 20) |
 | 2.3 | Vector store (embedded Qdrant) and indexing | Done (decision 21). Indexing is pipeline stage 10 |
 | 2.4 | Retrieval | Dense search is done and has a baseline (`python -m src.search`, decision 24). Keyword search with rank fusion and the three-way slide text comparison are not done |
 | 2.5 | Reranking | Not started, and only if the evaluation shows a gain |
-| 2.6 | Cited answers | Done (`python -m src.ask`, decision 22). All 3 questions the lectures do not cover were refused, and every answer to the 11 others cites the right place (decision 24). Whether each cited chunk supports its claim is only spot-checked so far |
+| 2.6 | Cited answers | Done (`python -m src.ask`, decision 22). All 7 questions the lectures do not cover were refused, and 33 of the 36 harder answers cite the right place (the 33 where the right chunk was in the top 5). A claim-by-claim check found 116 of 123 claims supported by the cited excerpt and none invented (decision 25). Open: a citation on every sentence, and "answerable" for partly answered questions |
 
 How the first version differs from the plan below:
 

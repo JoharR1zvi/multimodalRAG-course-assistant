@@ -421,4 +421,43 @@ The answer step, in one run at temperature 0: all three questions the lectures d
 - The answer step was run once.
 - A cited chunk in the right place does not prove that it supports every sentence it is attached to.
 
-**Next.** These numbers are the baseline for the comparisons planned in decisions 15, 19 and 20 (which slide text is embedded, how much of it, chunk size, cutting at slide changes), and then for keyword search merged with this search. Because the numbers are already so high, the evaluation set needs more or harder questions before it can separate close variants.
+**Next.** These numbers are the baseline for the comparisons planned in decisions 15, 19 and 20 (which slide text is embedded, how much of it, chunk size, cutting at slide changes), and then for keyword search merged with this search. Because the numbers are already so high, the evaluation set needs more or harder questions before it can separate close variants. That is decision 25.
+
+---
+
+## 25. A harder evaluation set, and checking the answers claim by claim
+
+**Problem.** The first set (decision 24) was too easy to learn from. Its best-3 results were already perfect, its questions come from exercise sheets and may be worded like the lectures, some answer ranges are many minutes long, it has no question on the code lecture, and it has only three questions the lectures do not cover.
+
+**What I built.** A second private set in the same ignored folder: 36 questions with an answer and 4 without. By type: 7 paraphrased, 12 detail, 9 decoy, 3 cross-lecture decoy, 3 multi-hop, 2 partly covered, and the 4 not covered. The rules:
+- Student wording, avoiding the slide's own terms where a natural paraphrase exists (the search must cope with different words for the same idea).
+- Facts specific to the lecturer's own examples and demos, and not textbook definitions, so a model cannot answer from general knowledge.
+- Tight answer ranges, usually 20 to 120 seconds.
+- Every other place that gives the same answer is listed, and finding any one of them counts as a hit.
+- A *decoy* question has a look-alike passage, in the same or another lecture, that shares the terms but does not answer it. A *multi-hop* question needs two places, and it is reported as "all places in the top k". A *not covered* question sounds on topic but is never answered.
+- The code lecture is included for the first time (10 questions).
+
+**How the answers were kept independent.** The questions were written from the transcripts and slide texts alone, not with the search, so the search does not grade itself. A second, separate pass then saw only the question texts and found the places and the answers on its own. A range was kept only where the two passes agreed, with the union of the two. An extra place was kept only if the second pass found it too (this removed ranges where text merely stays on screen while something else is discussed). Six places that only the second pass found were read by hand, and five were rejected as not answering the question. A not-covered question was kept only if the second pass also found no answer. Two questions meant as not covered turned out to be partly answered, and I turned them into partly answered questions.
+
+**Results: finding the right place** (dense search, default settings, 36 questions with an answer):
+
+| | Questions | hit@1 | hit@3 | hit@5 | hit@10 | MRR |
+|---|---|---|---|---|---|---|
+| First set (decision 24) | 11 | 0.91 | 1.00 | 1.00 | 1.00 | 0.939 |
+| Hard set | 36 | 0.58 (21) | 0.83 | 0.92 | 0.94 | 0.711 |
+
+By type, the first result is right for: paraphrased 0.71 of the time (MRR 0.857), detail 0.58 (0.697), decoy 0.44 (0.596), cross-lecture decoy 0.67 (0.733), partly covered 0.50 (0.583), and multi-hop 0.67 (0.833) when any one of its places counts. For the three multi-hop questions, all places are in the top 5 for two. On the code lecture the first result is right for 4 of 10. Two questions are not found in the top 10 at all, and for one of them the best-scoring result is the decoy passage it was built to attract.
+
+**Results: the answer step** (40 answers, one run, temperature 0). All 4 questions the lectures do not cover were refused. 33 of the 36 other answers cite a chunk from the right place, and these are exactly the 33 questions where the right chunk is in the top 5, which is all the answer step reads. So answer quality is capped by hit@5 (0.92), and better search is the lever. The three others were not invented answers: the search missed twice, so the answer said the material does not cover it, and once the answer correctly said the lecture only names a test without explaining it, but set the "answerable" flag to false, so my total counts it as a wrong refusal. The best scores of the four not-covered questions (0.526 to 0.619) lie inside the range for the answerable ones (0.499 to 0.748), so a score cutoff cannot decide refusals.
+
+**Results: claim by claim.** For each of the 36 answers, separate readers got only the question, the answer and the five excerpts the answer step had read, and judged every claim. There were 123 claims: 116 are supported by a cited excerpt, 5 are supported but by an excerpt that was not cited, 2 are overstated, and none is unsupported or contradicted. By answer: 30 fully faithful, 5 with a citation problem, 1 unfaithful. All five citation problems are the same pattern: the answer opens with a yes or no sentence that has no citation, and the next sentence repeats it with one. The one unfaithful answer states two things more strongly than its excerpts do (it adds a word the excerpt does not use, and it picks which use cases need a property when the slide only lists them). The three refusals were all judged true. Three answers are incomplete because the chunk that holds the missing part was not retrieved, not because of how they were written.
+
+**A failure of my own tooling.** The first answer run stopped at question 3 of 40: Gemini answered "high demand" three times in a row, the answer step gives up after three quick tries, and the whole run was lost before anything was saved. The evaluation now waits 20, 40 and 80 seconds between tries and records an error for a question instead of stopping. Three new tests cover it, and removing the `continue` after a failed question makes one fail. 179 tests pass.
+
+**What this does not show.**
+- 36 questions is still small, and there are only 3 multi-hop questions.
+- The places and reference answers come from two independent passes, but I have not checked each one by hand.
+- The claim check is one pass per answer, and one call was a strictness call.
+- It was one run of the answer step.
+
+**Next.** Two small changes to the answer step: ask for a citation on every sentence, including the first (and warn in code when a sentence has none), and let an answer that gives only the covered part of a question set "answerable". Then the settings experiments of decisions 15, 19 and 20, judged by hit@1 and MRR on this set, then keyword search merged with this search, and reranking if the decoy questions stay weak, since a reranker is built for exactly that case.

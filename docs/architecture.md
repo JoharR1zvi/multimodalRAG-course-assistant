@@ -211,23 +211,23 @@ A language model can invent a timestamp as easily as a fact, so the model is nev
 4. The source list is built from the stored chunks that were really cited: lecture, time range, slide titles and the picture of the first slide. Nothing in it comes from the model.
 5. If `answerable` is false, the command says so and shows the closest passages the search found.
 
-Only text goes to Gemini, so the slide pictures are not sent, and the passages leave the machine. The first evaluation (below, and [decision 24](decisions.md)) ran the answer step on 14 questions: the three outside the course were refused, and every answer to the others cited a chunk from the right place. Whether a cited chunk really supports each claim is only spot-checked so far (four answers). Reasoning in [decision 22](decisions.md).
+Only text goes to Gemini, so the slide pictures are not sent, and the passages leave the machine. The evaluations (below, and [decision 24](decisions.md) and [decision 25](decisions.md)) ran the answer step on 54 questions: all 7 outside the course were refused, and the answers cite a chunk from the right place whenever the right chunk is among the five excerpts. A claim-by-claim check of the 36 harder answers found 116 of 123 claims supported by the cited excerpt, 5 supported by an excerpt that was not cited (answers that open with an uncited sentence), 2 overstated and none invented. Reasoning in [decision 22](decisions.md).
 
 ## Evaluating (`src/evaluate.py`)
 
 ```
-python -m src.evaluate [--top N] [--answers] [--no-save]
+python -m src.evaluate [--top N] [--answers] [--eval-file PATH] [--no-save]
 ```
 
-The questions are in `data/eval/retrieval_eval.json`, which is not in this repository because they come from course material (decision 23). An item with an answer has its lecture, the time ranges in seconds where the answer is spoken, whether the lecture answers it fully or only partly, and a short reference answer. An item the lectures do not cover has no ranges. The steps:
+The questions are in a JSON file, by default `data/eval/retrieval_eval.json`, which is not in this repository because they come from course material (decisions 23 and 25). An item with an answer has its lecture, the time ranges in seconds where the answer is spoken, whether the lecture answers it fully or only partly, and a short reference answer. An item the lectures do not cover has no ranges. Optional fields: `extra_locations` (other places that give the same answer, finding any one counts), `hops` (a question that needs several places, all of which should be found) and `type` (for example paraphrase, detail, decoy), which adds a breakdown by type. A file without them works as before. The steps:
 
 1. Open the database once and search every question over all lectures, taking the best `--top` chunks (default 10).
 2. A chunk is a *hit* when it is from the right lecture and its time range overlaps an answer range. The *rank* of a question is the position of its first hit, or a miss.
 3. From the ranks, compute hit@k (the share of questions with a hit in the top k) and mean reciprocal rank (the average of 1 / rank, a miss counting as 0), for all questions with an answer and again for the fully and partly answered ones.
-4. For questions the lectures do not cover, print the best score. With `--answers`, also write an answer for every question with Gemini, paced under the free quota, and check that those are refused, that none of the others is, and that each answer cites a hit. I read the answers against the reference answers myself, because there is no automatic judge yet.
+4. For questions the lectures do not cover, print the best score. With `--answers`, also write an answer for every question with Gemini, paced under the free quota, and check that those are refused, that none of the others is, and that each answer cites a hit. A call that keeps failing (Gemini answers "high demand" now and then) is retried after 20, 40 and 80 seconds, and then recorded as an error, so one failure does not end the run. There is no automatic judge: the answers are read against the reference answers, and decision 25 describes a claim-by-claim check.
 5. Save the numbers and the settings used (chunk size, which slide text is embedded, embedding model, token limit, top k) to `data/eval/results_<time>.json`. The settings are read from the config, so they describe the stored chunks only if the chunks were rebuilt after the last change.
 
-The overlap rule, the rank finder and the metrics are small functions with tests on hand-made data. Results are in [decision 24](decisions.md).
+The overlap rule, the rank finder, the metrics, the extra places and the multi-place counting are small functions with tests on hand-made data. Results are in [decision 24](decisions.md) and [decision 25](decisions.md).
 
 ## Per-lecture settings
 
@@ -264,7 +264,7 @@ It passes on all three lectures. It checks completeness and consistency, not qua
 
 ## Tests
 
-`python -m pytest` runs 166 tests in about 6 seconds, with no video, no embedding model, no database folder and no API. They cover `compute_difference`, `align`, the grouping in `build_knowledge_objects`, the OCR cleaning functions, the settings loader and the exit check, and for Phase 2 the chunker, the chunk checks, the embedding cache, the vector store, the search, the answer step and the evaluation helpers, using tiny hand-made data. The embedding model is replaced by a fake that counts how often it is used, Qdrant runs in its in-memory mode with 3-number vectors, and Gemini is replaced by a function that returns a prepared reply. So the tests check what my own code does with whatever the model says, such as removing a made-up citation. A fake Gemini key is set before anything is imported, so a test can never spend quota. To check that the tests can fail, I break the code on purpose for each new piece (for example the lecture filter, the clean-up of old points, the citation check, the cache key) and confirm the matching test goes red. Speech, keyframe extraction end to end, OCR, the vision stage and the runner are not covered by the tests, because they need a video, Tesseract or the API. The exit check covers their output on real lectures instead.
+`python -m pytest` runs 179 tests in about 6 seconds, with no video, no embedding model, no database folder and no API. They cover `compute_difference`, `align`, the grouping in `build_knowledge_objects`, the OCR cleaning functions, the settings loader and the exit check, and for Phase 2 the chunker, the chunk checks, the embedding cache, the vector store, the search, the answer step and the evaluation helpers, using tiny hand-made data. The embedding model is replaced by a fake that counts how often it is used, Qdrant runs in its in-memory mode with 3-number vectors, and Gemini is replaced by a function that returns a prepared reply. So the tests check what my own code does with whatever the model says, such as removing a made-up citation. A fake Gemini key is set before anything is imported, so a test can never spend quota. To check that the tests can fail, I break the code on purpose for each new piece (for example the lecture filter, the clean-up of old points, the citation check, the cache key) and confirm the matching test goes red. Speech, keyframe extraction end to end, OCR, the vision stage and the runner are not covered by the tests, because they need a video, Tesseract or the API. The exit check covers their output on real lectures instead.
 
 ## Results on three lectures
 
@@ -284,8 +284,8 @@ In all three, each slide's end time equals the next slide's start time and no sp
 - Slides shown for only a few seconds get no speech (stage 7).
 - Only lecture video is processed so far. PDFs and PowerPoint files are planned.
 - The free Gemini quota sets the speed of the vision stage.
-- Search quality is measured on only 11 questions (decision 24), and hit@3 and higher are already at 1.00, so chunk size, the slide text that gets embedded and the embedding model are still untested choices: the set cannot yet tell close variants apart.
+- Search quality is measured on two small sets, 11 and 36 questions (decisions 24 and 25). The harder set separates settings much better, but chunk size, the slide text that gets embedded and the embedding model are still untested choices, and 36 questions is still small.
 - Chunks are cut by the number of words of speech, so a cut can fall in the middle of a slide (decision 19).
 - Only one program can have `data/qdrant/` open at a time.
-- The answer step checks that a citation exists, not that the cited chunk supports the claim. A spot check of four answers found no invented claim and one citation pointing at the wrong excerpt (decision 24).
+- The answer step checks that a citation exists, not that the cited chunk supports the claim. A claim-by-claim check of 36 answers found no invented claim, 5 answers that open with an uncited sentence and one answer with two overstated claims (decision 25).
 - The transcript mishears some abbreviations (for example AUROC is often written as "rock"), which hurts keyword matching. The slide text helps.
