@@ -50,17 +50,47 @@ def ranges_overlap(chunk_start: float, chunk_end: float, range_start: float, ran
     return chunk_start < range_end and chunk_end > range_start
 
 
-def chunk_is_hit(chunk, item: dict) -> bool:
-    # Is this chunk a correct place to find the answer to this question?
-    # It must be from the right lecture AND overlap at least one answer range.
-    if chunk.lecture_id != item["lecture"]:
+def get_locations(item: dict) -> list:
+    # Every place in the lectures that counts as a correct find for this question, as a list of
+    # {"lecture": ..., "ranges": [[start, end], ...]}:
+    #   "lecture" + "answer_ranges" : the main place
+    #   "extra_locations"           : other places that give the same answer (finding any one is right)
+    #   "hops"                      : a question that needs several places; each hop is one place
+    locations = []
+
+    main_ranges = item.get("answer_ranges", [])
+    if len(main_ranges) > 0:
+        locations.append({"lecture": item["lecture"], "ranges": main_ranges})
+
+    for extra in item.get("extra_locations", []):
+        locations.append(extra)
+
+    for hop in item.get("hops", []):
+        locations.append(hop)
+
+    return locations
+
+
+def chunk_hits_location(chunk, location: dict) -> bool:
+    # Is this chunk from the lecture of this place AND does it overlap one of the place's ranges?
+    if chunk.lecture_id != location["lecture"]:
         return False
 
-    for answer_range in item["answer_ranges"]:
+    for answer_range in location["ranges"]:
         range_start = answer_range[0]
         range_end = answer_range[1]
 
         if ranges_overlap(chunk.start_timestamp, chunk.end_timestamp, range_start, range_end):
+            return True
+
+    return False
+
+
+def chunk_is_hit(chunk, item: dict) -> bool:
+    # Is this chunk a correct place to find the answer to this question?
+    # It is when it hits any of the question's places (see get_locations).
+    for location in get_locations(item):
+        if chunk_hits_location(chunk, location):
             return True
 
     return False
@@ -132,6 +162,66 @@ def split_by_completeness(rows: list) -> tuple:
             full_rows.append(row)
 
     return full_rows, partial_rows
+
+
+def count_hops_found(results: list, item: dict, k: int) -> int:
+    # For a question that needs several places ("hops"): how many of the places have a hit
+    # among the top k results
+    found = 0
+
+    for hop in item.get("hops", []):
+        for result in results[:k]:
+            if chunk_hits_location(result.chunk, hop):
+                found = found + 1
+                break
+
+    return found
+
+
+def compute_hop_metrics(rows: list, k_values: list) -> dict:
+    # Numbers for the multi-hop questions (rows that have "hops_total" and "hops_found"):
+    #   all_hops@k   = the share of questions whose places are ALL in the top k
+    #   hop_recall@k = the share of all places that are in the top k
+    metrics = {"count": len(rows)}
+
+    for k in k_values:
+        questions_complete = 0
+        hops_found = 0
+        hops_total = 0
+
+        for row in rows:
+            found_here = row["hops_found"][k]
+            hops_found = hops_found + found_here
+            hops_total = hops_total + row["hops_total"]
+
+            if found_here == row["hops_total"]:
+                questions_complete = questions_complete + 1
+
+        if len(rows) == 0 or hops_total == 0:
+            metrics[f"all_hops@{k}"] = 0.0
+            metrics[f"hop_recall@{k}"] = 0.0
+        else:
+            metrics[f"all_hops@{k}"] = questions_complete / len(rows)
+            metrics[f"hop_recall@{k}"] = hops_found / hops_total
+
+    return metrics
+
+
+def split_by_type(rows: list) -> dict:
+    # Groups the rows by their "type" (for example detail, paraphrase, decoy), keeping the
+    # order in which each type first appears. Rows without a type are left out.
+    groups = {}
+
+    for row in rows:
+        question_type = row.get("type")
+        if question_type is None:
+            continue
+
+        if question_type not in groups:
+            groups[question_type] = []
+        groups[question_type].append(row)
+
+    return groups
 
 
 def summarize_results(results: list, item: dict | None = None) -> list:
@@ -230,16 +320,28 @@ def run_retrieval(items: list, top_k: int, client) -> tuple:
         if item["answerable"]:
             row = {
                 "id": item["id"],
-                "completeness": item["answer_completeness"],
+                "type": item.get("type"),
+                "completeness": item.get("answer_completeness", "full"),
                 "lecture": item["lecture"],
                 "rank": find_first_hit_rank(ranked, item),
                 "top_score": top_score,
                 "results": summarize_results(ranked, item),
             }
+
+            # A question that needs several places: also count how many places are in the top k
+            # (its "rank" above is the position of the first result that hits any of the places)
+            if len(item.get("hops", [])) > 0:
+                row["hops_total"] = len(item["hops"])
+                row["hops_found"] = {}
+                for k in HIT_K_VALUES:
+                    if k <= top_k:
+                        row["hops_found"][k] = count_hops_found(ranked, item, k)
+
             answerable_rows.append(row)
         else:
             row = {
                 "id": item["id"],
+                "type": item.get("type"),
                 "top_score": top_score,
                 "results": summarize_results(ranked),
             }
@@ -316,6 +418,12 @@ def print_answerable_table(rows: list, top_k: int) -> None:
     print("Questions with an answer in the lectures")
     print("(rank = position of the first result that covers the answer; top = the best-scoring result)\n")
 
+    # The question type column is only shown when the questions have a type
+    show_type = False
+    for row in rows:
+        if row.get("type") is not None:
+            show_type = True
+
     for row in rows:
         top_text = "no results"
         if len(row["results"]) > 0:
@@ -324,8 +432,12 @@ def print_answerable_table(rows: list, top_k: int) -> None:
             end = format_timestamp(top["end"])
             top_text = f"{top['lecture_id']} {start} - {end}  score {top['score']:.3f}"
 
+        type_text = ""
+        if show_type:
+            type_text = f"{row.get('type') or '':<21}"
+
         rank_text = format_rank(row["rank"], top_k)
-        print(f"  {row['id']:<8} {row['completeness']:<8} rank {rank_text:<22} top: {top_text}")
+        print(f"  {row['id']:<8} {type_text}{row['completeness']:<8} rank {rank_text:<22} top: {top_text}")
 
     print()
 
@@ -345,7 +457,21 @@ def print_metrics(title: str, metrics: dict, top_k: int) -> None:
     print()
 
 
+def print_hop_metrics(metrics: dict, top_k: int) -> None:
+    print(f"Questions that need several places ({metrics['count']} questions)")
+
+    for k in HIT_K_VALUES:
+        if k <= top_k:
+            print(f"  all places in the top {k:<3} {metrics[f'all_hops@{k}']:.2f}     share of the places found {metrics[f'hop_recall@{k}']:.2f}")
+
+    print()
+
+
 def print_unanswerable(rows: list, answerable_rows: list) -> None:
+    # Nothing to show when the question file has no question the lectures do not cover
+    if len(rows) == 0:
+        return
+
     print("Questions the lectures do not cover (the best score of a search result)")
 
     for row in rows:
@@ -461,6 +587,35 @@ def main() -> None:
         metrics = compute_metrics(ranks, HIT_K_VALUES)
         metrics_record[title] = metrics
         print_metrics(title, metrics, args.top)
+
+    # The same numbers for each question type (only when the questions have a type).
+    # A multi-hop question counts here with the position of its first hit on any of its places.
+    rows_by_type = split_by_type(answerable_rows)
+
+    for type_name in rows_by_type:
+        ranks = []
+        for row in rows_by_type[type_name]:
+            ranks.append(row["rank"])
+
+        metrics = compute_metrics(ranks, HIT_K_VALUES)
+        metrics_record[f"Type: {type_name}"] = metrics
+        print_metrics(f"Type: {type_name}", metrics, args.top)
+
+    # Questions that need several places: are all of the places in the top k?
+    hop_rows = []
+    for row in answerable_rows:
+        if "hops_total" in row:
+            hop_rows.append(row)
+
+    if len(hop_rows) > 0:
+        usable_k_values = []
+        for k in HIT_K_VALUES:
+            if k <= args.top:
+                usable_k_values.append(k)
+
+        hop_metrics = compute_hop_metrics(hop_rows, usable_k_values)
+        metrics_record["Questions that need several places"] = hop_metrics
+        print_hop_metrics(hop_metrics, args.top)
 
     print_unanswerable(unanswerable_rows, answerable_rows)
 

@@ -16,9 +16,12 @@ from src.database.vector_store import (
 )
 from src.evaluate import (
     chunk_is_hit,
+    compute_hop_metrics,
     compute_metrics,
     count_hits_at_k,
+    count_hops_found,
     find_first_hit_rank,
+    get_locations,
     load_eval_set,
     mean_reciprocal_rank,
     ranges_overlap,
@@ -27,6 +30,7 @@ from src.evaluate import (
     score_range,
     settings_snapshot,
     split_by_completeness,
+    split_by_type,
     summarize_results,
 )
 from src.retrieval import retriever
@@ -106,6 +110,104 @@ def test_any_one_of_several_answer_ranges_is_enough():
     item = make_item(ranges=[[50, 80], [1000, 1100]])
     assert chunk_is_hit(make_chunk("c", start=1050, end=1200), item) is True
     assert chunk_is_hit(make_chunk("c", start=500, end=600), item) is False
+
+
+# --- other places that also answer a question, and questions that need several places ---
+
+def test_the_places_of_a_question_are_the_main_place_the_extra_places_and_the_hops():
+    item = make_item(ranges=[[50, 80]])
+    item["extra_locations"] = [{"lecture": "lecture_b", "ranges": [[10, 20]]}]
+    item["hops"] = [{"lecture": "lecture_c", "ranges": [[1, 2]]}]
+
+    locations = get_locations(item)
+
+    assert [location["lecture"] for location in locations] == ["lecture_a", "lecture_b", "lecture_c"]
+
+
+def test_a_question_without_ranges_or_extra_places_has_no_places():
+    item = {"id": "u", "answerable": False, "lecture": None, "answer_ranges": []}
+    assert get_locations(item) == []
+    assert chunk_is_hit(make_chunk("c"), item) is False
+
+
+def test_a_chunk_at_an_extra_place_is_a_hit_too():
+    item = make_item(lecture="lecture_a", ranges=[[50, 80]])
+    item["extra_locations"] = [{"lecture": "lecture_b", "ranges": [[300, 400]]}]
+
+    assert chunk_is_hit(make_chunk("c", lecture_id="lecture_b", start=350, end=450), item) is True
+    # The extra place counts only in its own lecture
+    assert chunk_is_hit(make_chunk("c", lecture_id="lecture_a", start=350, end=450), item) is False
+
+
+def test_a_chunk_at_any_hop_is_a_hit():
+    item = {
+        "id": "m", "answerable": True, "lecture": "lecture_a", "answer_ranges": [],
+        "hops": [{"lecture": "lecture_a", "ranges": [[0, 50]]}, {"lecture": "lecture_b", "ranges": [[500, 600]]}],
+    }
+    assert chunk_is_hit(make_chunk("c", lecture_id="lecture_b", start=520, end=620), item) is True
+    assert chunk_is_hit(make_chunk("c", lecture_id="lecture_b", start=0, end=100), item) is False
+
+
+def test_hops_found_counts_the_places_that_have_a_hit_in_the_top_k():
+    item = {
+        "id": "m", "answerable": True, "lecture": "lecture_a", "answer_ranges": [],
+        "hops": [{"lecture": "lecture_a", "ranges": [[0, 50]]}, {"lecture": "lecture_b", "ranges": [[500, 600]]}],
+    }
+    results = [
+        make_result("first", lecture_id="lecture_a", start=10, end=60),     # hits hop 1
+        make_result("filler", lecture_id="lecture_a", start=900, end=950),  # hits nothing
+        make_result("third", lecture_id="lecture_b", start=520, end=620),   # hits hop 2
+    ]
+
+    assert count_hops_found(results, item, 1) == 1
+    assert count_hops_found(results, item, 2) == 1
+    assert count_hops_found(results, item, 3) == 2
+
+
+def test_two_chunks_hitting_the_same_hop_count_that_hop_once():
+    item = {
+        "id": "m", "answerable": True, "lecture": "lecture_a", "answer_ranges": [],
+        "hops": [{"lecture": "lecture_a", "ranges": [[0, 50]]}, {"lecture": "lecture_b", "ranges": [[500, 600]]}],
+    }
+    results = [
+        make_result("a", lecture_id="lecture_a", start=0, end=40),
+        make_result("b", lecture_id="lecture_a", start=10, end=60),
+    ]
+    assert count_hops_found(results, item, 2) == 1
+
+
+def test_hop_metrics_give_the_share_of_complete_questions_and_of_places():
+    rows = [
+        {"hops_total": 2, "hops_found": {1: 1, 3: 2}},   # complete at k=3
+        {"hops_total": 2, "hops_found": {1: 0, 3: 1}},   # half found at k=3
+    ]
+    metrics = compute_hop_metrics(rows, [1, 3])
+
+    assert metrics["count"] == 2
+    assert metrics["all_hops@1"] == pytest.approx(0.0)
+    assert metrics["hop_recall@1"] == pytest.approx(0.25)
+    assert metrics["all_hops@3"] == pytest.approx(0.5)
+    assert metrics["hop_recall@3"] == pytest.approx(0.75)
+
+
+def test_hop_metrics_of_no_questions_do_not_divide_by_zero():
+    metrics = compute_hop_metrics([], [1])
+    assert metrics["all_hops@1"] == 0.0
+    assert metrics["hop_recall@1"] == 0.0
+
+
+def test_rows_are_grouped_by_type_in_order_and_untyped_rows_are_left_out():
+    rows = [
+        {"id": "a", "type": "detail"},
+        {"id": "b", "type": "decoy"},
+        {"id": "c", "type": "detail"},
+        {"id": "d", "type": None},
+        {"id": "e"},
+    ]
+    groups = split_by_type(rows)
+
+    assert list(groups.keys()) == ["detail", "decoy"]
+    assert [row["id"] for row in groups["detail"]] == ["a", "c"]
 
 
 # --- find_first_hit_rank ---
@@ -276,6 +378,23 @@ def test_run_retrieval_gives_ranks_for_answerable_and_scores_for_unanswerable(da
     assert unanswerable_rows[0]["id"] == "u1"
     assert unanswerable_rows[0]["top_score"] == pytest.approx(1.0)
     assert len(all_results["hit1"]) == 3
+
+
+def test_run_retrieval_counts_the_hops_of_a_multi_hop_question_and_keeps_the_type(database):
+    item = {
+        "id": "m1", "type": "multi_hop", "question": "q", "answerable": True, "lecture": "lecture_a",
+        "answer_ranges": [],
+        # lecture_a_100 is the best match (rank 1), lecture_b_0 the second (rank 2)
+        "hops": [{"lecture": "lecture_a", "ranges": [[120, 150]]}, {"lecture": "lecture_b", "ranges": [[10, 20]]}],
+    }
+
+    answerable_rows, _, _ = run_retrieval([item], 3, database)
+    row = answerable_rows[0]
+
+    assert row["type"] == "multi_hop"
+    assert row["rank"] == 1
+    assert row["hops_total"] == 2
+    assert row["hops_found"] == {1: 1, 3: 2}
 
 
 def test_a_smaller_top_k_turns_a_late_hit_into_a_miss(database):
