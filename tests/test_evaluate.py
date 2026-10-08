@@ -4,6 +4,7 @@
 # and a fake question embedder, so no model, no real lecture and no Gemini call is needed.
 
 import json
+from datetime import datetime
 
 import numpy as np
 import pytest
@@ -15,15 +16,19 @@ from src.database.vector_store import (
     upsert_chunks,
 )
 from src.evaluate import (
+    chunk_covers_location,
     chunk_is_hit,
     compute_hop_metrics,
     compute_metrics,
     count_hits_at_k,
     count_hops_found,
     find_first_hit_rank,
+    find_first_strict_hit_rank,
     get_locations,
     load_eval_set,
     mean_reciprocal_rank,
+    mean_top_chunk_seconds,
+    overlap_seconds,
     ranges_overlap,
     run_retrieval,
     save_results,
@@ -112,6 +117,60 @@ def test_any_one_of_several_answer_ranges_is_enough():
     item = make_item(ranges=[[50, 80], [1000, 1100]])
     assert chunk_is_hit(make_chunk("c", start=1050, end=1200), item) is True
     assert chunk_is_hit(make_chunk("c", start=500, end=600), item) is False
+
+
+# --- the stricter hit: the chunk must cover at least half of the answer range ---
+
+def test_the_shared_seconds_of_two_stretches():
+    assert overlap_seconds(0, 100, 50, 80) == 30      # one inside the other
+    assert overlap_seconds(0, 60, 50, 80) == 10
+    assert overlap_seconds(0, 50, 50, 80) == 0        # only touching
+    assert overlap_seconds(0, 10, 50, 80) == 0
+
+
+def test_a_chunk_that_covers_half_of_the_answer_range_is_a_strict_hit():
+    location = {"lecture": "lecture_a", "ranges": [[100, 160]]}
+
+    assert chunk_covers_location(make_chunk("c", start=90, end=200), location, 0.5) is True      # all of it
+    assert chunk_covers_location(make_chunk("c", start=130, end=300), location, 0.5) is True     # exactly half (30 of 60)
+    assert chunk_covers_location(make_chunk("c", start=140, end=300), location, 0.5) is False    # a third (20 of 60)
+    assert chunk_covers_location(make_chunk("c", lecture_id="lecture_b", start=90, end=200), location, 0.5) is False
+
+
+def test_a_big_chunk_that_only_touches_the_answer_is_a_hit_but_not_a_strict_hit():
+    item = make_item(ranges=[[100, 160]])
+    big_chunk_result = make_result("big", start=150, end=450)       # shares 10 of the 60 seconds
+
+    assert find_first_hit_rank([big_chunk_result], item) == 1
+    assert find_first_strict_hit_rank([big_chunk_result], item) is None
+
+
+def test_the_strict_rank_is_the_position_of_the_first_chunk_that_covers_enough():
+    item = make_item(ranges=[[100, 160]])
+    results = [
+        make_result("touching", start=150, end=450),
+        make_result("covering", start=90, end=200),
+    ]
+
+    assert find_first_strict_hit_rank(results, item) == 2
+
+
+def test_the_strict_rank_counts_any_of_the_places_of_a_question():
+    item = make_item(lecture="lecture_a", ranges=[[100, 160]])
+    item["extra_locations"] = [{"lecture": "lecture_b", "ranges": [[10, 50]]}]
+
+    assert find_first_strict_hit_rank([make_result("c", lecture_id="lecture_b", start=0, end=60)], item) == 1
+
+
+def test_the_average_length_of_the_best_results():
+    rows = [
+        {"results": [{"start": 0, "end": 100}]},
+        {"results": [{"start": 50, "end": 350}]},
+        {"results": []},
+    ]
+
+    assert mean_top_chunk_seconds(rows) == 200
+    assert mean_top_chunk_seconds([]) == 0.0
 
 
 # --- other places that also answer a question, and questions that need several places ---
@@ -304,12 +363,18 @@ def test_the_summary_without_an_item_has_no_hit_flag():
 
 # --- answers: a failing Gemini call must not end the whole run ---
 
-def make_final_answer(question, answerable=True, sources=None):
+def make_final_answer(question, answerable=True, sources=None, coverage=None):
     if sources is None:
         sources = []
+    if coverage is None:
+        if answerable:
+            coverage = "full"
+        else:
+            coverage = "none"
     return FinalAnswer(
         question=question,
         answerable=answerable,
+        coverage=coverage,
         text="an answer",
         sources=sources,
         source_numbers=list(range(1, len(sources) + 1)),
@@ -366,7 +431,7 @@ def test_a_question_whose_answer_fails_is_recorded_and_the_run_goes_on(monkeypat
     ]
     hit_result = make_result("hit", start=40, end=90)
     all_results = {"a1": [hit_result], "a2": [hit_result], "u1": [hit_result]}
-    answerable_rows = [{"id": "a1"}, {"id": "a2"}]
+    answerable_rows = [{"id": "a1", "completeness": "full"}, {"id": "a2", "completeness": "full"}]
     unanswerable_rows = [{"id": "u1"}]
 
     def answer(question, results):
@@ -391,6 +456,56 @@ def test_a_question_whose_answer_fails_is_recorded_and_the_run_goes_on(monkeypat
     assert totals["answerable_wrongly_refused"] == 0
 
 
+def test_the_totals_say_whether_partly_answered_questions_get_partial_and_full_ones_do_not(monkeypatch, no_waiting):
+    items = [
+        {"id": "p1", "question": "part one", "answerable": True, "lecture": "lecture_a", "answer_ranges": [[50, 80]]},
+        {"id": "p2", "question": "part two", "answerable": True, "lecture": "lecture_a", "answer_ranges": [[50, 80]]},
+        {"id": "f1", "question": "full one", "answerable": True, "lecture": "lecture_a", "answer_ranges": [[50, 80]]},
+        {"id": "f2", "question": "full two", "answerable": True, "lecture": "lecture_a", "answer_ranges": [[50, 80]]},
+    ]
+    result = make_result("c", start=40, end=90)
+    all_results = {"p1": [result], "p2": [result], "f1": [result], "f2": [result]}
+    answerable_rows = [
+        {"id": "p1", "completeness": "partial"},
+        {"id": "p2", "completeness": "partial"},
+        {"id": "f1", "completeness": "full"},
+        {"id": "f2", "completeness": "full"},
+    ]
+
+    # p1 is marked partial (right), p2 is marked full (a miss), f1 is marked partial (hedging), f2 full (right)
+    coverage_by_question = {"part one": "partial", "part two": "full", "full one": "partial", "full two": "full"}
+
+    def answer(question, results):
+        return make_final_answer(question, answerable=True, sources=[results[0]], coverage=coverage_by_question[question])
+
+    monkeypatch.setattr(evaluate, "answer_question", answer)
+
+    totals = evaluate.run_answers(items, all_results, answerable_rows, [])
+
+    assert totals["partial_questions_total"] == 2
+    assert totals["partial_questions_marked_partial"] == 1
+    assert totals["full_questions_total"] == 2
+    assert totals["full_questions_marked_partial"] == 1
+    assert answerable_rows[0]["generated_coverage"] == "partial"
+
+
+def test_a_failed_answer_is_left_out_of_the_partial_counts(monkeypatch, no_waiting):
+    items = [{"id": "p1", "question": "part one", "answerable": True, "lecture": "lecture_a", "answer_ranges": [[50, 80]]}]
+    all_results = {"p1": [make_result("c", start=40, end=90)]}
+    answerable_rows = [{"id": "p1", "completeness": "partial"}]
+
+    def failing(question, results):
+        raise RuntimeError("high demand")
+
+    monkeypatch.setattr(evaluate, "answer_question", failing)
+
+    totals = evaluate.run_answers(items, all_results, answerable_rows, [])
+
+    assert answerable_rows[0]["generated_coverage"] is None
+    assert totals["partial_questions_total"] == 0
+    assert totals["answer_errors"] == 1
+
+
 # --- files ---
 
 def test_the_eval_set_is_read_from_a_file(tmp_path):
@@ -411,12 +526,31 @@ def test_results_are_saved_next_to_the_eval_file(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8")) == {"hello": "world"}
 
 
+def test_two_results_saved_in_the_same_second_do_not_overwrite_each_other(tmp_path, monkeypatch):
+    # Freeze the clock so both saves get the same second
+    class FrozenClock:
+        @staticmethod
+        def now():
+            return datetime(2026, 10, 8, 12, 0, 0)
+
+    monkeypatch.setattr("src.evaluate.datetime", FrozenClock)
+
+    first = save_results(str(tmp_path), {"run": "first"})
+    second = save_results(str(tmp_path), {"run": "second"})
+
+    assert first != second
+    assert json.loads(first.read_text(encoding="utf-8")) == {"run": "first"}
+    assert json.loads(second.read_text(encoding="utf-8")) == {"run": "second"}
+
+
 def test_the_settings_snapshot_names_the_settings_that_matter():
     snapshot = settings_snapshot(7)
 
     assert snapshot["top_k"] == 7
     assert "chunk_target_words" in snapshot
     assert "chunk_slide_text_source" in snapshot
+    assert "chunk_include_description" in snapshot
+    assert "qdrant_path" in snapshot
     assert "embedding_model" in snapshot
     assert "embedding_max_tokens" in snapshot
 
@@ -464,6 +598,8 @@ def test_run_retrieval_gives_ranks_for_answerable_and_scores_for_unanswerable(da
     answerable_rows, unanswerable_rows, all_results = run_retrieval(items, 3, database)
 
     assert [row["rank"] for row in answerable_rows] == [1, 3, None]
+    # these chunks are 100 s long and the answers are well inside them, so strict = plain here
+    assert [row["strict_rank"] for row in answerable_rows] == [1, 3, None]
     assert [row["completeness"] for row in answerable_rows] == ["full", "partial", "full"]
     assert len(unanswerable_rows) == 1
     assert unanswerable_rows[0]["id"] == "u1"

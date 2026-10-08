@@ -9,3 +9,10 @@ import os
 # set wins over .env). So if a test ever tries to call Gemini by accident, it simply fails
 # with an invalid-key error instead of quietly spending quota.
 os.environ.setdefault("GEMINI_API_KEY", "fake-key-for-tests")
+
+# The real default is to search two stored vectors and merge them (see src/config.py). Most tests
+# build a small database with ONE vector per chunk, so they ask for the plain layout here, and the
+# tests of the two-vector search pass their own `signals`. This also means the tests give the same
+# result whatever RETRIEVAL_SIGNALS the person running them has set. (Plain assignment, not
+# setdefault, on purpose: a value left over in the shell must not change the tests.)
+os.environ["RETRIEVAL_SIGNALS"] = "full"

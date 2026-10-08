@@ -6,9 +6,18 @@
 
 import pytest
 
-from src.ask import format_source
+from pydantic import ValidationError
+
+from src.ask import coverage_banner, format_source
 from src.generation import llm_service
-from src.generation.llm_service import answer_question, build_prompt, extract_citations
+from src.generation.llm_service import (
+    SYSTEM_INSTRUCTIONS,
+    answer_question,
+    build_prompt,
+    extract_citations,
+    find_uncited_sentences,
+    split_into_sentences,
+)
 from src.schemas.answer import GroundedAnswer
 from src.schemas.chunk import Chunk, SearchResult
 
@@ -45,14 +54,22 @@ def three_results():
 
 class FakeGemini:
     # Replaces ask_gemini: remembers the prompt it got and answers with a prepared form.
-    def __init__(self, answerable=True, answer="An answer [1]."):
-        self.answerable = answerable
+    # `coverage` is "full", "partial" or "none". When it is not given, answerable=True means
+    # "full" and answerable=False means "none".
+    def __init__(self, answerable=True, answer="An answer [1].", coverage=None):
+        if coverage is None:
+            if answerable:
+                coverage = "full"
+            else:
+                coverage = "none"
+
+        self.coverage = coverage
         self.answer = answer
         self.prompts = []
 
     def __call__(self, prompt):
         self.prompts.append(prompt)
-        return GroundedAnswer(answerable=self.answerable, answer=self.answer)
+        return GroundedAnswer(answer=self.answer, coverage=self.coverage)
 
 
 # ---------- the prompt ----------
@@ -135,7 +152,186 @@ def test_text_without_citations_gives_no_citations():
     assert cited == []
 
 
+# ---------- how well the excerpts cover the question ----------
+
+def test_the_form_asks_for_the_answer_first_and_then_the_coverage():
+    assert list(GroundedAnswer.model_fields.keys()) == ["answer", "coverage"]
+
+
+def test_the_coverage_must_be_full_partial_or_none():
+    with pytest.raises(ValidationError):
+        GroundedAnswer(answer="An answer [1].", coverage="mostly")
+
+
+def test_the_instructions_explain_the_three_coverage_values():
+    for word in ["coverage", "full", "partial", "none"]:
+        assert word in SYSTEM_INSTRUCTIONS
+
+
+def test_a_partly_covered_question_is_answerable_and_keeps_its_sources(monkeypatch):
+    answer = "The lecture names the test [1]. The material does not explain how it works."
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer=answer, coverage="partial"))
+
+    final = answer_question("Q?", three_results())
+
+    assert final.answerable is True
+    assert final.coverage == "partial"
+    assert final.source_numbers == [1]
+    assert final.warnings == []
+    assert final.text == answer
+
+
+def test_a_fully_covered_question_has_coverage_full(monkeypatch):
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer="A full answer [2].", coverage="full"))
+
+    final = answer_question("Q?", three_results())
+
+    assert final.answerable is True
+    assert final.coverage == "full"
+
+
+def test_only_coverage_none_is_a_refusal(monkeypatch):
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer="The lecture material does not cover this.", coverage="none"))
+
+    final = answer_question("Q?", three_results())
+
+    assert final.answerable is False
+    assert final.coverage == "none"
+
+
+def test_a_partial_answer_without_any_citation_is_still_flagged(monkeypatch):
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer="Only part of it is answered here.", coverage="partial"))
+
+    final = answer_question("Q?", three_results())
+
+    assert final.answerable is True
+    assert len(final.warnings) == 1
+    assert "no valid citation" in final.warnings[0]
+
+
+def test_no_search_results_give_coverage_none(monkeypatch):
+    monkeypatch.setattr(llm_service, "ask_gemini", lambda prompt: pytest.fail("the model must not be asked"))
+
+    final = answer_question("Q?", [])
+
+    assert final.coverage == "none"
+
+
+def test_the_banner_above_an_answer_depends_on_the_coverage():
+    assert coverage_banner("full") == ""
+    assert coverage_banner("none") == "NOT FOUND IN THE COURSE MATERIAL"
+    assert coverage_banner("partial").startswith("PARTLY COVERED")
+
+
+# ---------- sentences without a citation ----------
+
+def test_the_instructions_ask_for_a_citation_on_every_sentence_including_the_first():
+    assert "very first sentence" in SYSTEM_INSTRUCTIONS
+    assert "never start with a sentence that has no number" in SYSTEM_INSTRUCTIONS
+
+
+def test_an_answer_is_cut_into_sentences_after_full_stops_question_marks_and_exclamation_marks():
+    sentences = split_into_sentences("First one [1]. Second one? Third one! Fourth [2].")
+
+    assert sentences == ["First one [1].", "Second one?", "Third one!", "Fourth [2]."]
+
+
+def test_decimals_and_dots_inside_words_do_not_end_a_sentence():
+    sentences = split_into_sentences("The score was 0.9 for model.py and 1.5 for the other [1].")
+
+    assert len(sentences) == 1
+
+
+def test_a_citation_after_the_full_stop_belongs_to_the_sentence_before():
+    sentences = split_into_sentences("A claim about the data. [1] Another claim [2].")
+
+    assert sentences == ["A claim about the data. [1]", "Another claim [2]."]
+
+
+def test_an_abbreviation_does_not_end_a_sentence():
+    sentences = split_into_sentences("The shell stops the program (i.e. Control-D ends it) [1]. Next [2].")
+
+    assert len(sentences) == 2
+    assert sentences[0].startswith("The shell stops")
+
+
+def test_every_line_of_a_list_is_its_own_piece():
+    sentences = split_into_sentences("- first point [1]\n- second point [2]\n\n- third point [3]")
+
+    assert len(sentences) == 3
+
+
+def test_an_opening_sentence_without_a_citation_is_found():
+    uncited = find_uncited_sentences("Yes, there is such an example in the lecture. It is the imbalanced one [1].")
+
+    assert uncited == ["Yes, there is such an example in the lecture."]
+
+
+def test_an_answer_with_a_citation_on_every_sentence_has_no_uncited_sentences():
+    assert find_uncited_sentences("One claim [1]. Another claim [2][3]. A third [1, 2].") == []
+
+
+def test_a_sentence_about_the_excerpts_themselves_needs_no_citation():
+    text = "The lecture explains the first part [1]. The provided lecture material does not say how the second part works."
+
+    assert find_uncited_sentences(text) == []
+
+
+def test_very_short_pieces_are_not_reported():
+    assert find_uncited_sentences("Yes. No, sorry. The claim is true [1].") == []
+
+
 # ---------- the whole answer step ----------
+
+def test_an_uncited_sentence_gives_a_warning_and_the_text_is_left_alone(monkeypatch):
+    answer = "Yes, this is the case in the lecture. The reason is given [1]."
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer=answer))
+
+    final = answer_question("Q?", three_results())
+
+    assert final.text == answer
+    assert len(final.warnings) == 1
+    assert "1 sentence(s)" in final.warnings[0]
+    assert "Yes, this is the case in the lecture." in final.warnings[0]
+
+
+def test_a_long_uncited_sentence_is_shortened_in_the_warning(monkeypatch):
+    long_sentence = "This opening sentence goes on and on " * 6
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer=long_sentence.strip() + ". Then a cited one [2]."))
+
+    final = answer_question("Q?", three_results())
+
+    assert len(final.warnings) == 1
+    assert "..." in final.warnings[0]
+    assert len(final.warnings[0]) < 250
+
+
+def test_a_refusal_with_an_uncited_sentence_gets_no_warning(monkeypatch):
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answerable=False, answer="Nothing about this is in the lectures at all, sorry."))
+
+    final = answer_question("Q?", three_results())
+
+    assert final.warnings == []
+
+
+def test_an_answer_with_no_citation_at_all_gets_only_the_no_valid_citation_warning(monkeypatch):
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer="A confident answer with no citation at all."))
+
+    final = answer_question("Q?", three_results())
+
+    assert len(final.warnings) == 1
+    assert "no valid citation" in final.warnings[0]
+
+
+def test_a_citation_that_is_removed_as_invented_does_not_hide_an_uncited_sentence(monkeypatch):
+    monkeypatch.setattr(llm_service, "ask_gemini", FakeGemini(answer="Real claim about the lecture [1]. A second long claim that cites nothing real [9]."))
+
+    final = answer_question("Q?", three_results())
+
+    # one warning for the invented number and one for the sentence that is now uncited
+    assert len(final.warnings) == 2
+    assert any("do not exist" in warning for warning in final.warnings)
+    assert any("no citation" in warning for warning in final.warnings)
 
 def test_the_sources_come_from_the_real_chunks_not_from_the_model(monkeypatch):
     fake = FakeGemini(answer="Claim A [3]. Claim B [1].")

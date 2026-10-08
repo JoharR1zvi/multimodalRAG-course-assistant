@@ -81,6 +81,37 @@ def test_the_search_can_be_limited_to_one_lecture(database):
     assert results[0].chunk.lecture_id == "lecture_b"
 
 
+def test_two_signals_are_searched_separately_and_merged_by_rank(monkeypatch):
+    # Three chunks, two stored vectors each. For the question [1, 0, 0]:
+    #   by speech the order is  A, B, C      by full text the order is  B, C, A
+    # Fused: B is high in both lists and wins, then A, then C.
+    monkeypatch.setattr(retriever, "get_model_slug", lambda: "fake-model")
+    monkeypatch.setattr(retriever, "embed_query", lambda question: np.array([1.0, 0.0, 0.0]))
+
+    client = open_client(":memory:")
+    collection = get_collection_name("fake-model")
+    create_collection_if_missing(client, collection, 3, vector_names=["speech", "full"])
+
+    chunks = [make_chunk("A", start=0.0), make_chunk("B", start=100.0), make_chunk("C", start=200.0)]
+    vectors = {
+        "speech": [[1.0, 0.0, 0.0], [0.8, 0.6, 0.0], [0.6, 0.8, 0.0]],
+        "full": [[0.6, 0.8, 0.0], [1.0, 0.0, 0.0], [0.8, 0.6, 0.0]],
+    }
+    upsert_chunks(client, collection, chunks, vectors)
+
+    fused = retrieve("anything", top_k=3, client=client, signals=["speech", "full"])
+
+    assert [result.chunk.chunk_id for result in fused] == ["B", "A", "C"]
+    assert fused[0].method == "fusion"
+    client.close()
+
+
+def test_one_signal_is_the_plain_search_with_the_dense_method(database):
+    results = retrieve("anything", top_k=3, client=database, signals=["full"])
+
+    assert results[0].method == "dense"
+
+
 def test_an_empty_database_gives_no_results(monkeypatch):
     monkeypatch.setattr(retriever, "get_model_slug", lambda: "fake-model")
     monkeypatch.setattr(retriever, "embed_query", lambda question: np.array([0.0, 1.0, 0.0]))

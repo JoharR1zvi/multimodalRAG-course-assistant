@@ -29,12 +29,15 @@ from src.config import (
     CHUNK_OVERLAP_SEGMENTS,
     CHUNK_MIN_LAST_WORDS,
     CHUNK_SLIDE_TEXT_SOURCE,
+    CHUNK_INCLUDE_DESCRIPTION,
+    CHUNK_SLIDE_AWARE,
+    CHUNK_SLIDE_AWARE_MIN_WORDS,
 )
 from src.schemas.chunk import Chunk
 from src.schemas.knowledge_object import AlignedSegment, KnowledgeObject
 
-# The three versions of the slide text a chunk can embed
-SLIDE_TEXT_SOURCES = ["slide_text", "cleaned_text", "clean_text"]
+# The three versions of the slide text a chunk can embed, and "none" for no slide text at all
+SLIDE_TEXT_SOURCES = ["slide_text", "cleaned_text", "clean_text", "none"]
 
 
 def count_words(text: str) -> int:
@@ -71,6 +74,27 @@ def overlap_pieces(bucket: dict, overlap_segments: int) -> list:
     return bucket["pieces"][-overlap_segments:]
 
 
+def is_real_slide_change(bucket: dict, next_slide_time, slide_by_time: dict) -> bool:
+    # Is the next speech piece on a really different slide than the last piece of the bucket?
+    # "Really different" means both slides have a title and the titles differ. A new screen state of
+    # the same slide keeps its title, and a slide without a title gives no signal at all.
+    if len(bucket["pieces"]) == 0:
+        return False
+
+    last_slide_time = bucket["pieces"][-1][1]
+
+    if last_slide_time is None or next_slide_time is None:
+        return False
+
+    last_title = slide_by_time[last_slide_time].title.strip().lower()
+    next_title = slide_by_time[next_slide_time].title.strip().lower()
+
+    if last_title == "" or next_title == "":
+        return False
+
+    return last_title != next_title
+
+
 def build_chunks(
     knowledge_objects: list,
     aligned_segments: list,
@@ -81,9 +105,18 @@ def build_chunks(
     overlap_segments: int = CHUNK_OVERLAP_SEGMENTS,
     min_last_words: int = CHUNK_MIN_LAST_WORDS,
     slide_text_source: str = CHUNK_SLIDE_TEXT_SOURCE,
+    include_description: bool = CHUNK_INCLUDE_DESCRIPTION,
+    slide_aware: bool = CHUNK_SLIDE_AWARE,
+    slide_aware_min_words: int = CHUNK_SLIDE_AWARE_MIN_WORDS,
 ) -> list:
     # knowledge_objects: list of KnowledgeObject      aligned_segments: list of AlignedSegment
     # Returns a list of Chunk, in time order.
+    #   slide_text_source   : which version of the slide text is embedded ("none" = no slide text)
+    #   include_description : whether the diagram/code description is embedded
+    #   slide_aware         : seal a chunk at a real slide change once it has slide_aware_min_words
+    #                         words, instead of at target_words (see is_real_slide_change)
+    # Both only change the string that is embedded (embed_text). The chunk keeps every version of
+    # the slide text and the description, so the answer step can still show them.
 
     if slide_text_source not in SLIDE_TEXT_SOURCES:
         raise ValueError(f"slide_text_source must be one of {SLIDE_TEXT_SOURCES}, not {slide_text_source!r}")
@@ -161,6 +194,17 @@ def build_chunks(
             finished.append(current)
             current = new_bucket(overlap_pieces(current, overlap_segments))
 
+        # 4a'. Slide-aware cutting: the bucket is big enough and this piece starts a really new
+        # slide, so this is a natural place to cut
+        elif (
+            slide_aware
+            and current["new_count"] > 0
+            and bucket_words(current) >= slide_aware_min_words
+            and is_real_slide_change(current, slide_time, slide_by_time)
+        ):
+            finished.append(current)
+            current = new_bucket(overlap_pieces(current, overlap_segments))
+
         # 4b. The waiting slides join the bucket this speech goes into
         for blank_time in waiting_room:
             current["blank_times"].append(blank_time)
@@ -170,10 +214,19 @@ def build_chunks(
         current["pieces"].append((segment, slide_time))
         current["new_count"] = current["new_count"] + 1
 
-        # 4d. Big enough: seal it
+        # 4d. Big enough: seal it. With slide-aware cutting, a piece on a slide that has a title waits
+        # for the next real slide change (or the hard maximum) instead; a slide without a title gives
+        # no signal, so the length rule applies as before.
         if bucket_words(current) >= target_words:
-            finished.append(current)
-            current = new_bucket(overlap_pieces(current, overlap_segments))
+            wait_for_slide_change = False
+
+            if slide_aware and slide_time is not None:
+                if slide_by_time[slide_time].title.strip() != "":
+                    wait_for_slide_change = True
+
+            if not wait_for_slide_change:
+                finished.append(current)
+                current = new_bucket(overlap_pieces(current, overlap_segments))
 
     # The bucket still open at the end counts only if it holds something new
     if current["new_count"] > 0:
@@ -263,13 +316,15 @@ def build_chunks(
             chosen_slide_text = slide_text
         elif slide_text_source == "cleaned_text":
             chosen_slide_text = cleaned_text
+        elif slide_text_source == "none":
+            chosen_slide_text = ""
         else:
             chosen_slide_text = clean_text
 
         embed_parts = []
         if chosen_slide_text != "":
             embed_parts.append(chosen_slide_text)
-        if slide_description != "":
+        if include_description and slide_description != "":
             embed_parts.append(slide_description)
         embed_parts.append(speech)
         embed_text = "\n\n".join(embed_parts)

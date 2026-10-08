@@ -39,6 +39,9 @@ HIT_K_VALUES = [1, 3, 5, 10]
 # How many results the answer step reads. Same default as `python -m src.ask`.
 ANSWER_TOP_K = 5
 
+# The stricter hit test: a chunk must cover at least this share of the answer range
+STRICT_MIN_SHARE = 0.5
+
 # The answer step already retries a failed Gemini call a few times, quickly. When Gemini stays
 # overloaded for longer, one failed question must not end a run of 40 questions: the evaluation
 # waits this many seconds after each failure and tries again, and records an error at the end.
@@ -53,6 +56,51 @@ def ranges_overlap(chunk_start: float, chunk_end: float, range_start: float, ran
     # True when the two stretches of time share at least some seconds.
     # Two stretches that only touch (one ends exactly where the other starts) do not overlap.
     return chunk_start < range_end and chunk_end > range_start
+
+
+def overlap_seconds(chunk_start: float, chunk_end: float, range_start: float, range_end: float) -> float:
+    # How many seconds the two stretches of time share (0 when they do not overlap)
+    start = max(chunk_start, range_start)
+    end = min(chunk_end, range_end)
+
+    if end > start:
+        return end - start
+
+    return 0.0
+
+
+def chunk_covers_location(chunk, location: dict, min_share: float) -> bool:
+    # A stricter test than "any overlap": the chunk must be from the right lecture AND cover at
+    # least min_share of one answer range (0.5 = at least half of the seconds of the answer).
+    # A bigger chunk overlaps an answer range more easily, so "any overlap" favours big chunks;
+    # this test does not.
+    if chunk.lecture_id != location["lecture"]:
+        return False
+
+    for answer_range in location["ranges"]:
+        range_length = answer_range[1] - answer_range[0]
+        if range_length <= 0:
+            continue
+
+        shared = overlap_seconds(chunk.start_timestamp, chunk.end_timestamp, answer_range[0], answer_range[1])
+
+        if shared / range_length >= min_share:
+            return True
+
+    return False
+
+
+def find_first_strict_hit_rank(results: list, item: dict, min_share: float = STRICT_MIN_SHARE):
+    # Like find_first_hit_rank, but a result only counts when its chunk covers at least min_share
+    # of an answer range of the question (see chunk_covers_location)
+    locations = get_locations(item)
+
+    for position in range(len(results)):
+        for location in locations:
+            if chunk_covers_location(results[position].chunk, location, min_share):
+                return position + 1
+
+    return None
 
 
 def get_locations(item: dict) -> list:
@@ -255,6 +303,22 @@ def summarize_results(results: list, item: dict | None = None) -> list:
     return summary
 
 
+def mean_top_chunk_seconds(rows: list) -> float:
+    # The average length, in seconds, of the best-scoring result of each question. It tells how
+    # big the chunks are, which matters when settings that change the chunk size are compared.
+    lengths = []
+
+    for row in rows:
+        if len(row["results"]) > 0:
+            top = row["results"][0]
+            lengths.append(top["end"] - top["start"])
+
+    if len(lengths) == 0:
+        return 0.0
+
+    return sum(lengths) / len(lengths)
+
+
 def score_range(rows: list) -> tuple:
     # (lowest, highest) best-result score over some rows, or None when no row has a result
     scores = []
@@ -283,13 +347,18 @@ def settings_snapshot(top_k: int) -> dict:
     # rebuilding the chunks (python -m src.pipeline --all --force chunk), they do not describe
     # what is stored in the database.
     return {
-        "retrieval_method": "dense",
+        "retrieval_method": "dense" if len(config.RETRIEVAL_SIGNALS) == 1 else "dense fusion",
+        "retrieval_signals": config.RETRIEVAL_SIGNALS,
         "top_k": top_k,
         "chunk_target_words": config.CHUNK_TARGET_WORDS,
         "chunk_max_words": config.CHUNK_MAX_WORDS,
         "chunk_overlap_segments": config.CHUNK_OVERLAP_SEGMENTS,
         "chunk_min_last_words": config.CHUNK_MIN_LAST_WORDS,
+        "chunk_slide_aware": config.CHUNK_SLIDE_AWARE,
+        "chunk_slide_aware_min_words": config.CHUNK_SLIDE_AWARE_MIN_WORDS,
         "chunk_slide_text_source": config.CHUNK_SLIDE_TEXT_SOURCE,
+        "chunk_include_description": config.CHUNK_INCLUDE_DESCRIPTION,
+        "qdrant_path": config.QDRANT_PATH,
         "embedding_provider": config.EMBEDDING_PROVIDER,
         "embedding_model": config.EMBEDDING_MODEL,
         "embedding_max_tokens": config.EMBEDDING_MAX_TOKENS,
@@ -329,6 +398,7 @@ def run_retrieval(items: list, top_k: int, client) -> tuple:
                 "completeness": item.get("answer_completeness", "full"),
                 "lecture": item["lecture"],
                 "rank": find_first_hit_rank(ranked, item),
+                "strict_rank": find_first_strict_hit_rank(ranked, item),
                 "top_score": top_score,
                 "results": summarize_results(ranked, item),
             }
@@ -397,6 +467,7 @@ def run_answers(items: list, all_results: dict, answerable_rows: list, unanswera
         # Every try failed: record it as an error and go on with the next question
         if final is None:
             row["generated_answerable"] = None
+            row["generated_coverage"] = None
             row["generated_answer"] = "(no answer: the Gemini call kept failing)"
             row["generated_warnings"] = []
             if item["answerable"]:
@@ -404,6 +475,7 @@ def run_answers(items: list, all_results: dict, answerable_rows: list, unanswera
             continue
 
         row["generated_answerable"] = final.answerable
+        row["generated_coverage"] = final.coverage
         row["generated_answer"] = final.text
         row["generated_warnings"] = final.warnings
 
@@ -434,7 +506,31 @@ def run_answers(items: list, all_results: dict, answerable_rows: list, unanswera
         if row["cites_right_place"]:
             cited_right_place = cited_right_place + 1
 
+    # Does the answer step say "partial" for the questions the lecture only partly answers, and
+    # not for the ones it answers fully (hedging)? Answers that failed are left out.
+    partial_total = 0
+    partial_marked_partial = 0
+    full_total = 0
+    full_marked_partial = 0
+
+    for row in answerable_rows:
+        if row["generated_coverage"] is None:
+            continue
+
+        if row["completeness"] == "partial":
+            partial_total = partial_total + 1
+            if row["generated_coverage"] == "partial":
+                partial_marked_partial = partial_marked_partial + 1
+        else:
+            full_total = full_total + 1
+            if row["generated_coverage"] == "partial":
+                full_marked_partial = full_marked_partial + 1
+
     return {
+        "partial_questions_total": partial_total,
+        "partial_questions_marked_partial": partial_marked_partial,
+        "full_questions_total": full_total,
+        "full_questions_marked_partial": full_marked_partial,
         "unanswerable_refused": refused_correctly,
         "unanswerable_total": len(unanswerable_rows),
         "answerable_wrongly_refused": wrongly_refused,
@@ -544,9 +640,9 @@ def print_answers(items: list, answerable_rows: list, unanswerable_rows: list, t
         print(f"Question: {item['question']}")
 
         if item["answerable"]:
-            print(f"Answer step said answerable = {row['generated_answerable']}, cites the right place = {row['cites_right_place']}")
+            print(f"Answer step said coverage = {row['generated_coverage']} (the lecture answers it: {item.get('answer_completeness', 'full')}), cites the right place = {row['cites_right_place']}")
         else:
-            print(f"Answer step said answerable = {row['generated_answerable']}   (should be False)")
+            print(f"Answer step said coverage = {row['generated_coverage']}   (should be none)")
 
         print("Generated:")
         print(row["generated_answer"])
@@ -564,6 +660,8 @@ def print_answers(items: list, answerable_rows: list, unanswerable_rows: list, t
     print(f"  questions without an answer that were refused: {totals['unanswerable_refused']} of {totals['unanswerable_total']}")
     print(f"  questions with an answer that were refused:    {totals['answerable_wrongly_refused']} of {totals['answerable_total']}")
     print(f"  answers that cite the right place:             {totals['answerable_citing_right_place']} of {totals['answerable_total']}")
+    print(f"  partly answered questions marked partly covered: {totals['partial_questions_marked_partial']} of {totals['partial_questions_total']}")
+    print(f"  fully answered questions marked partly covered:  {totals['full_questions_marked_partial']} of {totals['full_questions_total']}   (hedging)")
     if totals["answer_errors"] > 0:
         print(f"  questions whose answer failed (Gemini errors): {totals['answer_errors']}")
     print()
@@ -574,7 +672,19 @@ def save_results(output_folder: str, record: dict) -> Path:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     path = Path(output_folder) / f"results_{stamp}.json"
 
-    with open(path, "w", encoding="utf-8") as file:
+    # Two runs that finish in the same second would get the same name. Mode "x" refuses to open a
+    # file that already exists, so in that case we add a counter (_2, _3, ...) instead of writing
+    # into the other run's file (that mixed the text of two files once).
+    counter = 1
+    while True:
+        try:
+            file = open(path, "x", encoding="utf-8")
+            break
+        except FileExistsError:
+            counter += 1
+            path = Path(output_folder) / f"results_{stamp}_{counter}.json"
+
+    with file:
         json.dump(record, file, indent=2, ensure_ascii=False)
 
     return path
@@ -629,6 +739,21 @@ def main() -> None:
         metrics = compute_metrics(ranks, HIT_K_VALUES)
         metrics_record[title] = metrics
         print_metrics(title, metrics, args.top)
+
+    # The same numbers with the stricter hit test (the chunk must cover at least half of the
+    # answer range), which does not favour big chunks
+    strict_ranks = []
+    for row in answerable_rows:
+        strict_ranks.append(row["strict_rank"])
+
+    strict_title = "Strict hits (the chunk covers at least half of the answer range)"
+    strict_metrics = compute_metrics(strict_ranks, HIT_K_VALUES)
+    metrics_record[strict_title] = strict_metrics
+    print_metrics(strict_title, strict_metrics, args.top)
+
+    average_length = mean_top_chunk_seconds(answerable_rows)
+    metrics_record["Average length of the best result (seconds)"] = average_length
+    print(f"Average length of the best result: {average_length:.0f} seconds\n")
 
     # The same numbers for each question type (only when the questions have a type).
     # A multi-hop question counts here with the position of its first hit on any of its places.

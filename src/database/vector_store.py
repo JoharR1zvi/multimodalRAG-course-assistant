@@ -47,15 +47,38 @@ def to_float_list(vector) -> list:
     return numbers
 
 
-def create_collection_if_missing(client: QdrantClient, collection_name: str, vector_size: int) -> None:
+def create_collection_if_missing(client: QdrantClient, collection_name: str, vector_size: int, vector_names: list | None = None) -> None:
+    # vector_names: None = every point has one vector (the usual case).
+    # A list of names, such as ["speech", "full"] = every point has one vector PER NAME, so one
+    # chunk can be searched by its speech and by its full text with the same stored payload.
     if client.collection_exists(collection_name):
         return
 
-    client.create_collection(
-        collection_name=collection_name,
-        # cosine = compare the DIRECTION of two vectors, which is what "same meaning" is
-        vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
-    )
+    # cosine = compare the DIRECTION of two vectors, which is what "same meaning" is
+    one_vector = models.VectorParams(size=vector_size, distance=models.Distance.COSINE)
+
+    if vector_names is None:
+        vectors_config = one_vector
+    else:
+        vectors_config = {}
+        for name in vector_names:
+            vectors_config[name] = one_vector
+
+    client.create_collection(collection_name=collection_name, vectors_config=vectors_config)
+
+
+def get_vector_names(client: QdrantClient, collection_name: str) -> list | None:
+    # The names of the vectors of an existing collection, or None when its points have one
+    # unnamed vector. Returns None as well when the collection does not exist.
+    if not client.collection_exists(collection_name):
+        return None
+
+    vectors_config = client.get_collection(collection_name).config.params.vectors
+
+    if isinstance(vectors_config, dict):
+        return sorted(vectors_config.keys())
+
+    return None
 
 
 def make_lecture_filter(lecture_id: str) -> models.Filter:
@@ -94,19 +117,39 @@ def delete_lecture(client: QdrantClient, collection_name: str, lecture_id: str) 
 def upsert_chunks(client: QdrantClient, collection_name: str, chunks: list, vectors) -> int:
     # Saves chunks with their vectors. "Upsert" = insert, or overwrite if the id already exists,
     # so running it twice never duplicates anything.
-    # chunks: list of Chunk       vectors: one vector per chunk, in the same order
+    # chunks : list of Chunk
+    # vectors: one vector per chunk, in the same order (one unnamed vector per chunk), OR a dict
+    #          {name: one vector per chunk} when the collection has named vectors
 
-    if len(chunks) != len(vectors):
-        raise ValueError(f"{len(chunks)} chunks but {len(vectors)} vectors")
+    if isinstance(vectors, dict):
+        vectors_by_name = vectors
+    else:
+        vectors_by_name = None
+
+    if vectors_by_name is None:
+        vector_lists = [vectors]
+    else:
+        vector_lists = list(vectors_by_name.values())
+
+    for vector_list in vector_lists:
+        if len(chunks) != len(vector_list):
+            raise ValueError(f"{len(chunks)} chunks but {len(vector_list)} vectors")
 
     points = []
 
     for i in range(len(chunks)):
         chunk = chunks[i]
 
+        if vectors_by_name is None:
+            point_vector = to_float_list(vectors[i])
+        else:
+            point_vector = {}
+            for name in vectors_by_name:
+                point_vector[name] = to_float_list(vectors_by_name[name][i])
+
         point = models.PointStruct(
             id=make_point_id(chunk.chunk_id),
-            vector=to_float_list(vectors[i]),
+            vector=point_vector,
             payload=chunk.model_dump(),
         )
         points.append(point)
@@ -122,8 +165,10 @@ def search(
     query_vector,
     top_k: int = 5,
     lecture_id: str | None = None,
+    using: str | None = None,
 ) -> list:
     # The nearest chunks to a question's vector, best first. Optionally only inside one lecture.
+    # using: the name of the vector to search, when the collection has named vectors.
     # Returns a list of SearchResult (chunk + score + method).
 
     if not client.collection_exists(collection_name):
@@ -136,6 +181,7 @@ def search(
     response = client.query_points(
         collection_name=collection_name,
         query=to_float_list(query_vector),
+        using=using,
         limit=top_k,
         query_filter=query_filter,
         with_payload=True,

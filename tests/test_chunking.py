@@ -274,6 +274,139 @@ def test_the_embedded_text_uses_the_chosen_version_of_the_slide_text():
     assert chunks[0].clean_text == "VISION"
 
 
+def test_the_slide_text_source_none_embeds_no_slide_text_but_keeps_the_description():
+    slides = [make_slide(0.0, 100.0, slide_text="RAW", cleaned_text="CLEANED", clean_text="VISION", description="A DIAGRAM")]
+    segments = [make_segment(5.0, 0.0)]
+
+    chunks = build_chunks(slides, segments, slide_text_source="none", **SMALL)
+    embed_text = chunks[0].embed_text
+
+    for text in ["RAW", "CLEANED", "VISION"]:
+        assert text not in embed_text
+    assert embed_text.startswith("A DIAGRAM")
+    assert "s5_0" in embed_text
+    # the chunk still carries all the text, so the answer step can show it
+    assert chunks[0].clean_text == "VISION"
+
+
+def test_leaving_the_description_out_removes_it_from_the_embedded_text_only():
+    slides = [make_slide(0.0, 100.0, clean_text="VISION", description="A DIAGRAM")]
+    segments = [make_segment(5.0, 0.0)]
+
+    chunks = build_chunks(slides, segments, include_description=False, **SMALL)
+
+    assert "A DIAGRAM" not in chunks[0].embed_text
+    assert "VISION" in chunks[0].embed_text
+    assert chunks[0].slide_description == "A DIAGRAM"
+
+
+def test_no_slide_text_and_no_description_embeds_the_speech_only():
+    slides = [make_slide(0.0, 100.0, slide_text="RAW", clean_text="VISION", description="A DIAGRAM")]
+    segments = [make_segment(5.0, 0.0)]
+
+    chunks = build_chunks(slides, segments, slide_text_source="none", include_description=False, **SMALL)
+
+    assert chunks[0].embed_text == chunks[0].text
+
+
+# ---------- cutting at slide changes (experiment) ----------
+
+# Slide A (titled) holds three 10-word pieces, then slide B (another title) holds three more.
+# With target 15 the length rule cuts after two pieces, in the middle of slide A.
+AWARE = dict(target_words=15, max_words=40, overlap_segments=1, min_last_words=0, slide_aware_min_words=15)
+
+
+def two_titled_slides_lecture(title_a="Topic A", title_b="Topic B"):
+    slides = [make_slide(0.0, 15.0, title=title_a), make_slide(15.0, 100.0, title=title_b)]
+    segments = [
+        make_segment(0.0, 0.0), make_segment(5.0, 0.0), make_segment(10.0, 0.0),       # slide A
+        make_segment(15.0, 15.0), make_segment(20.0, 15.0), make_segment(25.0, 15.0),  # slide B
+    ]
+    return slides, segments
+
+
+def test_without_slide_aware_cutting_the_length_rule_cuts_in_the_middle_of_a_slide():
+    slides, segments = two_titled_slides_lecture()
+
+    chunks = build_chunks(slides, segments, slide_aware=False, **AWARE)
+
+    # sealed after two pieces (20 words >= 15), while slide A still has a third piece
+    assert len(words_of(chunks[0])) == 20
+
+
+def test_slide_aware_cutting_waits_for_the_real_slide_change():
+    slides, segments = two_titled_slides_lecture()
+
+    chunks = build_chunks(slides, segments, slide_aware=True, **AWARE)
+
+    # the first chunk is all three pieces of slide A and nothing of slide B
+    assert len(words_of(chunks[0])) == 30
+    assert chunks[0].slide_timestamps == [0.0]
+    assert "s15_0" not in chunks[0].text
+    # the next chunk starts with the overlap piece, then goes on with slide B
+    assert chunks[1].text.split()[0] == "s10_0"
+    assert "s15_0" in chunks[1].text
+    # nothing is lost
+    all_words = []
+    for chunk in chunks:
+        all_words = all_words + words_of(chunk)
+    for start in [0, 5, 10, 15, 20, 25]:
+        assert f"s{start}_0" in all_words
+
+
+def test_a_chunk_that_is_still_small_is_not_cut_at_a_slide_change():
+    slides, segments = two_titled_slides_lecture()
+    small_min = dict(AWARE, slide_aware_min_words=45)
+
+    chunks = build_chunks(slides, segments, slide_aware=True, **small_min)
+
+    # 30 words are below the 45 needed, so the chunk goes on across the slide change
+    assert chunks[0].slide_timestamps == [0.0, 15.0]
+
+
+def test_slides_without_a_title_give_no_signal_so_the_length_rule_is_used():
+    slides, segments = two_titled_slides_lecture(title_a="", title_b="")
+
+    aware = build_chunks(slides, segments, slide_aware=True, **AWARE)
+    plain = build_chunks(slides, segments, slide_aware=False, **AWARE)
+
+    assert [chunk.text for chunk in aware] == [chunk.text for chunk in plain]
+
+
+def test_the_same_title_on_the_next_screen_state_is_not_a_slide_change():
+    # Two screen states of one slide share the title: that is not a real change
+    slides, segments = two_titled_slides_lecture(title_a="Same title", title_b="same TITLE")
+
+    chunks = build_chunks(slides, segments, slide_aware=True, **AWARE)
+
+    # no real change anywhere, so nothing waits for one: the cut comes at the hard maximum
+    for chunk in chunks:
+        assert len(words_of(chunk)) <= 40
+    assert chunks[0].slide_timestamps == [0.0, 15.0]
+
+
+def test_the_hard_maximum_still_holds_when_no_slide_change_ever_comes():
+    slides = [make_slide(0.0, 1000.0, title="One long slide")]
+    segments = []
+    for i in range(12):
+        segments.append(make_segment(i * 5.0, 0.0))
+
+    chunks = build_chunks(slides, segments, slide_aware=True, **AWARE)
+
+    assert len(chunks) >= 2
+    for chunk in chunks:
+        assert len(words_of(chunk)) <= 40
+
+
+def test_the_slide_aware_setting_is_off_by_default():
+    slides, segments = two_titled_slides_lecture()
+    explicit_off = build_chunks(slides, segments, slide_aware=False, **AWARE)
+
+    default = build_chunks(slides, segments, target_words=15, max_words=40, overlap_segments=1, min_last_words=0)
+
+    assert [chunk.text for chunk in default] == [chunk.text for chunk in explicit_off]
+
+
 def test_speech_before_the_first_slide_is_kept_in_the_first_chunk():
     slides = [make_slide(50.0, 100.0)]
     segments = [

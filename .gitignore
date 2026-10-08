@@ -30,7 +30,7 @@ data/processed/*
 
 # Embedding cache and local vector database (both are rebuilt from the processed data)
 data/cache/
-data/qdrant/
+data/qdrant*/
 
 # Evaluation questions (they come from course material, so they stay local)
 data/eval/

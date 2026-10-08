@@ -16,6 +16,7 @@ from src.database.vector_store import (
     create_collection_if_missing,
     delete_lecture,
     get_collection_name,
+    get_vector_names,
     make_point_id,
     open_client,
     search,
@@ -142,6 +143,47 @@ def test_deleting_a_lecture_leaves_the_other_lectures_alone(client):
     assert count_points(client, COLLECTION, "lecture_b") == 1
 
 
+# ---------- several named vectors per chunk ----------
+
+def test_a_collection_can_hold_one_named_vector_per_signal_and_each_can_be_searched():
+    database = open_client(":memory:")
+    create_collection_if_missing(database, COLLECTION, 3, vector_names=["speech", "full"])
+    chunks = [make_chunk("lecture_a_0"), make_chunk("lecture_a_100", start=100.0)]
+    vectors = {
+        "speech": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        "full": [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0]],
+    }
+    upsert_chunks(database, COLLECTION, chunks, vectors)
+
+    # the same question points at the first chunk by speech and at the second by full text
+    by_speech = search(database, COLLECTION, [1.0, 0.0, 0.0], top_k=2, using="speech")
+    by_full = search(database, COLLECTION, [1.0, 0.0, 0.0], top_k=2, using="full")
+
+    assert by_speech[0].chunk.chunk_id == "lecture_a_0"
+    assert by_full[0].chunk.chunk_id == "lecture_a_100"
+    # one point per chunk, however many vectors it has
+    assert count_points(database, COLLECTION) == 2
+
+
+def test_the_vector_names_of_a_collection_can_be_read_back():
+    database = open_client(":memory:")
+    create_collection_if_missing(database, "plain", 3)
+    create_collection_if_missing(database, "named", 3, vector_names=["speech", "full"])
+
+    assert get_vector_names(database, "plain") is None
+    assert get_vector_names(database, "named") == ["full", "speech"]
+    assert get_vector_names(database, "no_such_collection") is None
+
+
+def test_every_named_vector_needs_one_vector_per_chunk():
+    database = open_client(":memory:")
+    create_collection_if_missing(database, COLLECTION, 3, vector_names=["speech", "full"])
+    vectors = {"speech": [[1.0, 0.0, 0.0]], "full": [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]}
+
+    with pytest.raises(ValueError):
+        upsert_chunks(database, COLLECTION, [make_chunk("lecture_a_0")], vectors)
+
+
 # ---------- indexing a whole lecture ----------
 
 class FakeEmbedder:
@@ -215,6 +257,73 @@ def test_reindexing_after_the_chunks_changed_removes_the_old_points(tmp_path, fa
     index_lecture(chunks_path, client=database)
 
     assert count_points(database, collection, "lecture_a") == 2
+
+
+def test_each_signal_embeds_its_own_text_and_gets_its_own_named_vector(tmp_path, monkeypatch):
+    seen_texts = []
+
+    def recording_embedder(texts):
+        seen_texts.append(list(texts))
+        return np.array([[1.0, float(i), 0.0] for i in range(len(texts))], dtype=np.float32)
+
+    monkeypatch.setattr(indexing, "embed_texts", recording_embedder)
+    monkeypatch.setattr(indexing, "get_model_slug", lambda: "fake-model")
+    chunks_path = tmp_path / "chunks.json"
+    write_chunks_file(chunks_path, [make_chunk("lecture_a_0"), make_chunk("lecture_a_100", start=100.0)])
+    database = open_client(":memory:")
+
+    index_lecture(chunks_path, client=database, signals=["speech", "full"])
+
+    collection = get_collection_name("fake-model")
+    # the speech signal embeds the speech of the chunks, the full signal embeds their embed_text
+    assert seen_texts[0] == ["some speech", "some speech"]
+    assert seen_texts[1] == ["embed text of lecture_a_0", "embed text of lecture_a_100"]
+    assert get_vector_names(database, collection) == ["full", "speech"]
+    assert count_points(database, collection, "lecture_a") == 2
+
+
+def test_the_signal_texts_are_the_speech_or_the_embed_text():
+    chunks = [make_chunk("lecture_a_0")]
+
+    assert indexing.texts_for_signal(chunks, "speech") == ["some speech"]
+    assert indexing.texts_for_signal(chunks, "full") == ["embed text of lecture_a_0"]
+
+    with pytest.raises(ValueError):
+        indexing.texts_for_signal(chunks, "nonsense")
+
+
+def test_one_signal_other_than_full_gives_plain_unnamed_vectors(tmp_path, monkeypatch):
+    seen_texts = []
+
+    def recording_embedder(texts):
+        seen_texts.append(list(texts))
+        return np.array([[1.0, float(i), 0.0] for i in range(len(texts))], dtype=np.float32)
+
+    monkeypatch.setattr(indexing, "embed_texts", recording_embedder)
+    monkeypatch.setattr(indexing, "get_model_slug", lambda: "fake-model")
+    chunks_path = tmp_path / "chunks.json"
+    write_chunks_file(chunks_path, [make_chunk("lecture_a_0")])
+    database = open_client(":memory:")
+
+    index_lecture(chunks_path, client=database, signals=["speech"])
+
+    assert seen_texts == [["some speech"]]
+    assert get_vector_names(database, get_collection_name("fake-model")) is None
+
+
+def test_a_database_with_another_vector_layout_is_refused_with_a_hint(tmp_path, fake_embedder):
+    chunks_path = tmp_path / "chunks.json"
+    write_chunks_file(chunks_path, [make_chunk("lecture_a_0")])
+    database = open_client(":memory:")
+
+    # first built with one plain vector per chunk ...
+    index_lecture(chunks_path, client=database, signals=["full"])
+
+    # ... then asked to hold two named vectors: refused, even though the chunk count matches
+    with pytest.raises(ValueError) as error:
+        index_lecture(chunks_path, client=database, signals=["speech", "full"])
+
+    assert "QDRANT_PATH" in str(error.value)
 
 
 def test_indexing_one_lecture_does_not_touch_another(tmp_path, fake_embedder):

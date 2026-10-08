@@ -27,24 +27,61 @@ DELETE_AUDIO_AFTER_TRANSCRIPT = os.environ.get("DELETE_AUDIO_AFTER_TRANSCRIPT", 
 # All the lectures belong to one course for now. The id goes into every chunk.
 COURSE_ID = os.environ.get("COURSE_ID", "course_01")
 
+# The chunk sizes can be changed through the environment for experiments (decision 19), for
+# example CHUNK_TARGET_WORDS=200 CHUNK_MAX_WORDS=260 CHUNK_MIN_LAST_WORDS=60.
+
 # A chunk is sealed as soon as it holds this many words of speech...
-CHUNK_TARGET_WORDS = 350
+CHUNK_TARGET_WORDS = int(os.environ.get("CHUNK_TARGET_WORDS", "350"))
 
 # ...and a speech piece is never added if it would push the chunk over this many words.
-CHUNK_MAX_WORDS = 450
+CHUNK_MAX_WORDS = int(os.environ.get("CHUNK_MAX_WORDS", "450"))
 
 # How many speech pieces at the end of a chunk are repeated at the start of the next one,
 # so an idea that was cut at the boundary appears in both chunks.
-CHUNK_OVERLAP_SEGMENTS = 1
+CHUNK_OVERLAP_SEGMENTS = int(os.environ.get("CHUNK_OVERLAP_SEGMENTS", "1"))
 
 # A last chunk with fewer NEW words than this is merged into the chunk before it
 # (if the result still fits under the maximum).
-CHUNK_MIN_LAST_WORDS = 100
+CHUNK_MIN_LAST_WORDS = int(os.environ.get("CHUNK_MIN_LAST_WORDS", "100"))
+
+# Cut at slide changes (an experiment, decision 19). Off by default: chunks are cut by length only.
+# When on, a chunk that already holds CHUNK_SLIDE_AWARE_MIN_WORDS words of speech is sealed at the
+# next real slide change (the slide title changes), instead of at CHUNK_TARGET_WORDS. If no slide
+# change comes before CHUNK_MAX_WORDS, it is sealed there. Slides without a title give no signal,
+# so the length rule is used for them.
+CHUNK_SLIDE_AWARE = os.environ.get("CHUNK_SLIDE_AWARE", "false").strip().lower() == "true"
+CHUNK_SLIDE_AWARE_MIN_WORDS = int(os.environ.get("CHUNK_SLIDE_AWARE_MIN_WORDS", "250"))
 
 # Which version of the slide text goes into the embedded string: "slide_text" (raw OCR),
-# "cleaned_text" (cleaned OCR) or "clean_text" (the vision model's reading).
-# The three are compared in a later experiment (decision 15).
+# "cleaned_text" (cleaned OCR), "clean_text" (the vision model's reading) or "none" (no slide
+# text at all). The versions are compared in an experiment (decision 15).
 CHUNK_SLIDE_TEXT_SOURCE = os.environ.get("CHUNK_SLIDE_TEXT_SOURCE", "clean_text")
+
+# Whether the vision model's description of diagrams and code goes into the embedded string too.
+# Put CHUNK_INCLUDE_DESCRIPTION=false in the environment to leave it out (an experiment, decision 20).
+# The chunk keeps the description either way: only what is embedded and searched changes.
+CHUNK_INCLUDE_DESCRIPTION = os.environ.get("CHUNK_INCLUDE_DESCRIPTION", "true").strip().lower() != "false"
+
+# --- Retrieval signals (indexing.py, retriever.py) ---
+
+# Which embedded texts the search uses, as a comma-separated list in the environment:
+#   "full"   = the chunk's embed_text (slide text, description and speech, as set above)
+#   "speech" = the speech of the chunk alone
+# One signal is the plain search. With several (for example "speech,full") every signal is
+# searched on its own and the lists are merged with reciprocal rank fusion (decision 27).
+# Changing this needs a new database (python -m src.pipeline --all --force chunk, with another
+# QDRANT_PATH), because the vectors stored are different.
+# The default merges both: it scored best over the three question sets (decision 27).
+RETRIEVAL_SIGNALS = []
+for signal_name in os.environ.get("RETRIEVAL_SIGNALS", "speech,full").split(","):
+    if signal_name.strip() != "":
+        RETRIEVAL_SIGNALS.append(signal_name.strip())
+
+# When signals are merged, each one contributes its best this-many results
+FUSION_CANDIDATES = int(os.environ.get("FUSION_CANDIDATES", "20"))
+
+# Reciprocal rank fusion: a result at rank r in a list adds 1 / (FUSION_RRF_K + r) to its score
+FUSION_RRF_K = 60
 
 # --- Embeddings (embedding_service.py) ---
 

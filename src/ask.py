@@ -39,6 +39,17 @@ def format_source(number: int, result) -> str:
     return "\n".join(lines)
 
 
+def coverage_banner(coverage: str) -> str:
+    # The line shown above the answer. Empty when the lectures cover the whole question.
+    if coverage == "none":
+        return "NOT FOUND IN THE COURSE MATERIAL"
+
+    if coverage == "partial":
+        return "PARTLY COVERED: the course material answers only part of this question"
+
+    return ""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ask a question about the indexed lectures.")
     parser.add_argument("question", help="your question, in quotes")
@@ -51,11 +62,10 @@ def main() -> None:
 
     print(f"\nQuestion: {args.question}\n")
 
-    if not final.answerable:
-        print("NOT FOUND IN THE COURSE MATERIAL")
-        print(final.text)
-    else:
-        print(final.text)
+    banner = coverage_banner(final.coverage)
+    if banner != "":
+        print(banner)
+    print(final.text)
 
     if len(final.sources) > 0:
         print("\nSources:")
