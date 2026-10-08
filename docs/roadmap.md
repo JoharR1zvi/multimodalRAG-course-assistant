@@ -4,7 +4,7 @@ Last updated: 2026-10-08.
 
 ## Where things stand
 
-**Phase 2 has a working prototype (2026-10-08).** Chunking, embeddings (bge-m3 on the GPU), an embedded Qdrant database, search, and answers with citations all work end to end on three lectures: 96 chunks are stored, `python -m src.search` finds the closest chunks, and `python -m src.ask` answers from them with sources that come from stored data. 179 tests pass. Two evaluations have run (`python -m src.evaluate`, decisions 24 and 25) on private question sets with known answer locations. On the first, easier set of 11 questions the first result is in the right place for 10 (hit@1 0.91, MRR 0.939). On a harder set of 36 (paraphrased, decoy, code-lecture and multi-place questions) it is for 21 (hit@1 0.58, MRR 0.711), and decoy questions are the weakest (0.44). All 7 questions the lectures do not cover were refused, and a claim-by-claim check of the 36 harder answers found no invented claim. These are baselines from small sets. The overview is in the README, with diagrams, and the status of every Phase 2 step is in `phase2-plan.md`.
+**Phase 2 has a working prototype (2026-10-08).** Chunking, embeddings (bge-m3 on the GPU), an embedded Qdrant database, search, and answers with citations all work end to end on three lectures: 96 chunks are stored, `python -m src.search` finds the closest chunks, and `python -m src.ask` answers from them with sources that come from stored data. 238 tests pass. Three evaluations have run (`python -m src.evaluate`, decisions 24, 25 and 27) on private question sets with known answer locations. On the first, easier set of 11 questions the first result is in the right place for 10 (hit@1 0.91, MRR 0.939). On a harder set of 36 (paraphrased, decoy, code-lecture and multi-place questions) it is for 21 (hit@1 0.58, MRR 0.711), and decoy questions are the weakest (0.44). All 7 questions the lectures do not cover were refused, and a claim-by-claim check of the 36 harder answers found no invented claim. Those numbers are for the first version of the search. After comparing the settings (decision 27), search now runs on two kinds of stored vector, one from the speech alone and one from the full text, and merges the two lists. Over three question sets (74 questions) the first result is right for 0.743, up from 0.635, and on a fresh set of 27 questions it went from 0.59 to 0.70 (MRR 0.764 to 0.815); it is slightly worse on the first, easier set. These are results from small sets. The overview is in the README, with diagrams, and the status of every Phase 2 step is in `phase2-plan.md`.
 
 **Phase 1 is complete (2026-10-06).** One lecture video becomes structured, timestamped knowledge, and it has been run on three lectures of two kinds (annotated slides with a webcam overlay, and a screen recording of live coding). One command runs all eight stages:
 
@@ -38,16 +38,17 @@ Slides with a presenter, and code or screen demos. Whiteboard and blackboard rec
 
 ## Phase 2 (in progress)
 
-Done (2026-10-08): carrying the three versions of the slide text into the knowledge objects, chunking, the local embedding model with a cache, the Qdrant store with indexing as pipeline stage 10, dense search, cited answers, two evaluation sets (the questions themselves are private), the command that runs them with baseline numbers (decisions 24 and 25), and a claim-by-claim check of the answers.
+Done (2026-10-08): carrying the three versions of the slide text into the knowledge objects, chunking, the local embedding model with a cache, the Qdrant store with indexing as pipeline stage 10, dense search, cited answers, two evaluation sets (the questions themselves are private), the command that runs them with baseline numbers (decisions 24 and 25), a claim-by-claim check of the answers, and the settings comparison on three question sets, which ended with merging two searches as the default (decision 27).
 
 Next, in this order:
 
-1. **Two small changes to the answer step:** ask for a citation on every sentence (the check found five answers that open with an uncited sentence), and let an answer that gives only the covered part of a question set "answerable".
-2. **Compare the choices that are only settings today:** which slide text is embedded (decision 15), how much slide text at all (decision 20), chunk size, and cutting at slide changes (decision 19). Each is judged by hit@1 and MRR on the harder set (decision 25).
-3. **Keyword search merged with the meaning search** (BM25 and reciprocal rank fusion), kept only if hit@k improves.
-4. **Reranking**, only if the measurements show it helps. The decoy questions, where the right chunk is found but ranked below a look-alike, are the case it is built for.
-5. **The Gemini embedding provider and the comparison with bge-m3** (decision 12).
-6. **Repeat the claim-by-claim check** after the changes above. The first run (decision 25) found 116 of 123 claims supported by the cited excerpt and none invented.
+1. **Keyword search merged with the meaning search** (BM25, through the same rank-fusion code that now merges the two meaning searches), kept only if hit@k improves on all three question sets.
+2. **Run the answer step with the new search** on the harder set and the third set (about 70 Gemini calls), and repeat the claim-by-claim check, since the answers have not been re-measured since the search changed.
+3. **Reranking**, only if the measurements show it helps. The decoy questions, where the right chunk is found but ranked below a look-alike, are the case it is built for.
+4. **The Gemini embedding provider and the comparison with bge-m3** (decision 12).
+5. **A new, untouched question set** before claiming a final number: I chose the settings partly on the third set, so its numbers are a little optimistic (decision 27).
+
+Done on the answer step (decision 26): a citation on every sentence, with a warning when one is missing (5 answers with an uncited sentence became 2 of 36), and a "partly covered" label instead of yes or no.
 
 Details and the design are in `phase2-plan.md`.
 
@@ -55,9 +56,9 @@ Details and the design are in `phase2-plan.md`.
 
 Backend API and a user interface. Support for PDFs and PowerPoint files as course material (currently only lecture video is processed).
 
-## Phase 2 decision to remember: which slide text gets embedded
+## Phase 2 decision made: which slide text gets embedded
 
-Compare three versions on the evaluation set, changing only the embedded text: raw OCR, cleaned OCR, and the vision model's clean text. Details in decision 15.
+Compared on three question sets, with every variant recorded (decision 27). No version of the slide text wins on every set, so the default searches the speech alone and the full text, and merges the two lists. Raw OCR, cleaned OCR and the vision model's text, with and without the diagram description, are all in the table there.
 
 ## Automatic keyframe settings (after the code-screencast lecture)
 

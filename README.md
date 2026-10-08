@@ -16,7 +16,7 @@ I'm building it one stage at a time and writing down why I made each choice. The
 
 **Phase 1 is complete: a lecture video becomes structured, timestamped knowledge.** It has been run on three lectures of two different kinds (annotated slides with a webcam overlay, and a screen recording of live coding). An exit check, `python -m src.verify --all`, passes on all three: every piece of speech is matched to the slide on screen, and no speech is lost.
 
-**Phase 2 has a working prototype (2026-10-08): chunking, embeddings, a vector database, search, and answers with citations.** All three lectures are indexed (96 chunks), and `python -m src.ask "your question"` answers from them. Two private evaluation sets (they stay private, because the questions come from course material) measure it. On a first, easier set of 11 questions, the right place is first for 10 and in the top 3 for all 11. On a harder set of 36 (paraphrased questions, decoy passages that share the question's terms, questions that need two places, and the code lecture), it is first for 21 and in the top 3 for 30. All 7 questions the lectures do not cover are refused, and a claim-by-claim check of the 36 harder answers found no invented claim. These are baselines from small sets, not proof of quality ([decision 24](docs/decisions.md), [decision 25](docs/decisions.md)). Comparing the settings, keyword search, reranking and the comparison of embedding models are still planned. The design and progress are in [`docs/phase2-plan.md`](docs/phase2-plan.md).
+**Phase 2 has a working prototype (2026-10-08): chunking, embeddings, a vector database, search, and answers with citations.** All three lectures are indexed (96 chunks), and `python -m src.ask "your question"` answers from them. Two private evaluation sets (they stay private, because the questions come from course material) measure it. On a first, easier set of 11 questions, the right place is first for 10 and in the top 3 for all 11. On a harder set of 36 (paraphrased questions, decoy passages that share the question's terms, questions that need two places, and the code lecture), it is first for 21 and in the top 3 for 30. All 7 questions the lectures do not cover are refused, and a claim-by-claim check of the 36 harder answers found no invented claim. Those numbers are for the first version of the search. I then compared the settings (which slide text is embedded, chunk size, cutting at slide changes) on those two sets and on a third, fresh set of 27 questions, and found that searching the speech on its own as well, and merging the two result lists, works best across questions worded in different ways ([decision 27](docs/decisions.md)). These are results from small sets, not proof of quality ([decision 24](docs/decisions.md), [decision 25](docs/decisions.md)). Keyword search, reranking and the comparison of embedding models are still planned. The design and progress are in [`docs/phase2-plan.md`](docs/phase2-plan.md).
 
 ## What the pipeline does
 
@@ -45,7 +45,7 @@ Then, for every question:
 
 ![Phase 2: getting ready to search, and answering a question](docs/diagrams/phase2.svg)
 
-- **Search** (`python -m src.search`): the question is turned into numbers by the same model, and Qdrant returns the five chunks whose numbers are closest.
+- **Search** (`python -m src.search`): the question is turned into numbers by the same model. Qdrant is asked twice, once for the chunks whose speech is closest and once for the chunks whose full text (slide text, description and speech) is closest, and the two lists are merged by rank. The five best chunks are returned.
 - **Answer** (`python -m src.ask`): Gemini gets those five chunks as numbered excerpts and may only answer from them. It cites excerpt numbers, never times. My code checks the numbers and builds the source list from the stored chunk data, so a source can't be invented.
 
 Every stage reads files and writes files, so each result can be opened and checked. How each stage works, and why, is in [`docs/architecture.md`](docs/architecture.md).
@@ -88,7 +88,17 @@ Phase 2, a harder set (36 questions with an answer, written in a student's wordi
 | First, easier set | 11 | 0.91 | 1.00 | 1.00 | 0.939 |
 | Harder set | 36 | 0.58 | 0.83 | 0.94 | 0.711 |
 
-Decoy questions, where a look-alike passage shares the question's terms, are the weakest: the first result is right for 0.44 of them. On this set all 4 questions the lectures do not cover were refused, and 33 of 36 answers cite the right place. Those are the 33 where the right chunk was in the top 5, which is all the answer step reads, so better search is what improves the answers. A claim-by-claim check found 116 of 123 claims supported by the cited excerpt, 5 supported by an excerpt that was not cited, 2 overstated, and none unsupported. How the set was built and checked is in [decision 25](docs/decisions.md).
+Decoy questions, where a look-alike passage shares the question's terms, are the weakest: the first result is right for 0.44 of them. On this set all 4 questions the lectures do not cover were refused, and 33 of 36 answers cite the right place. Those are the 33 where the right chunk was in the top 5, which is all the answer step reads, so better search is what improves the answers. A claim-by-claim check found 116 of 123 claims supported by the cited excerpt, 5 supported by an excerpt that was not cited, 2 overstated, and none unsupported. How the set was built and checked is in [decision 25](docs/decisions.md). A later change (asking for a citation on every sentence, and a "partly covered" label instead of yes or no) cut the answers with an uncited sentence from 5 to 2 of 36, and a question the lectures only half answer is now shown as partly covered with its sources ([decision 26](docs/decisions.md)).
+
+Phase 2, tuning the settings (decision 27). The same questions, one change at a time, with the first result right (hit@1) and mean reciprocal rank (MRR):
+
+| Search | First set (11) | Harder set (36) | Third set (27) |
+|---|---|---|---|
+| First version: one search, slide text and speech together | 0.91 / 0.939 | 0.58 / 0.711 | 0.59 / 0.764 |
+| Speech only | 0.64 / 0.780 | 0.78 / 0.869 | 0.70 / 0.779 |
+| **Now: the speech search and the full-text search, merged** | 0.82 / 0.882 | 0.75 / 0.844 | 0.70 / 0.815 |
+
+Over all 74 questions, the first result is right for 0.743 of them, up from 0.635, and the right place is among the top 3 for 0.919, up from 0.878. It is worse on the first set (one question moved from first to fifth), so this is a gain for questions in a student's own words, and the third set is only 27 questions, so differences of 0.03 are noise. Chunks of about 350 words did better than 200 or 500, and cutting at slide changes did not help enough to keep. All variants, including the ones that lost, are in [decision 27](docs/decisions.md).
 
 ## Setup
 
@@ -140,7 +150,7 @@ Sources:
      slide image: data/processed/lecture_01/keyframes/<frame>.jpg
 ```
 
-If the lectures do not cover the question, the answer says so and shows the closest passages the search found.
+If the lectures do not cover the question, the answer says so and shows the closest passages the search found. If they cover only part of it, the answer is marked "PARTLY COVERED", gives that part with its sources, and says what is missing. Every sentence should end with a citation, and the command warns about any that does not.
 
 To measure the search on your own set of questions (a JSON file, by default `data/eval/retrieval_eval.json`; mine stay private):
 
@@ -167,7 +177,7 @@ A lecture can have its own settings in an optional `data/raw/<lecture_name>/sett
 python -m pytest
 ```
 
-179 tests run in about 6 seconds, with no video, no embedding model, no database folder and no API calls.
+238 tests run in about 6 seconds, with no video, no embedding model, no database folder and no API calls.
 
 ## Repository layout
 
@@ -194,7 +204,7 @@ docs/diagrams/         the diagrams above (SVG) and the script that draws them
 
 ## Limits to know about
 
-- **Search quality is measured on small sets:** 11 questions, and a harder set of 36 (decisions 24 and 25). The answer places and reference answers come from independent passes that I have not each checked by hand. The harder set separates settings much better, but 36 questions is still small, and there are only 3 that need two places. Chunk size, which slide text is embedded, and the choice of embedding model are the settings I will compare.
+- **Search quality is measured on small sets:** 11 questions, a harder set of 36, and a third set of 27 questions used to check the tuning (decisions 24, 25 and 27). The answer places and reference answers come from independent passes that I have not each checked by hand. The harder set separates settings much better, but 36 questions is still small, and there are only 3 that need two places. Chunk size, which slide text is embedded, cutting at slide changes and merging two searches have been compared (decision 27); the choice of embedding model has not.
 - Only lecture video is processed so far. PDFs and PowerPoint files are planned.
 - Whisper runs on an NVIDIA GPU as configured, and the embedding model also uses the GPU (about 2.7 GB at peak; never run both at once on a 6 GB card).
 - OCR is weak on terminal and code text, so for code the vision model's text is the useful source.

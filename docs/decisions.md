@@ -177,7 +177,7 @@ Full reasoning in `phase2-plan.md`. Summary:
 
 To be filled in after steps 2.2 and 2.4: hit@k, latency, cost and rate-limit behaviour for the local model against the API model, and which one became the default and why.
 
-**Status (2026-10-08).** Only the local model (bge-m3) is built and working, so the comparison has not been run. The Gemini provider answers "not built yet". What I learned about the local model so far is in decision 20.
+**Status (2026-10-08).** Only the local model (bge-m3) is built and working, so the comparison has not been run. The Gemini provider answers "not built yet". What I learned about the local model so far is in decision 20. The settings experiments of decision 27 all used bge-m3, so they do not answer this one, and it stays open.
 
 ---
 
@@ -224,7 +224,7 @@ Fixes: `description` now comes before `content_type` in the form, so the model w
 
 ---
 
-## 15. Which slide text to use: raw OCR, cleaned OCR, or the vision model's text (pending)
+## 15. Which slide text to use: raw OCR, cleaned OCR, or the vision model's text
 
 **Problem.** There are now two sources of slide text: Tesseract and the vision model's `clean_text`. Comparing raw OCR to the model's text is not a fair fight, because raw OCR carries the interface junk.
 
@@ -237,6 +237,8 @@ Fixes: `description` now comes before `content_type` in the form, so the model w
 **After cleaning the OCR (2026-10-06).** On the slide lectures, 92 to 97% of the cleaned OCR words are also in the model's text, so cleaned OCR is now close to it for plain slide text (decision 11). What the model adds beyond that is diagrams and formulas, which OCR cannot read. Of the three versions, the comparison at retrieval time still decides.
 
 **Status (2026-10-08).** All three versions now travel with every chunk (`slide_text`, `cleaned_text`, `clean_text`). The version that gets embedded is a setting, and the default is the vision model's text, because it is the cleanest in the samples I read. The retrieval comparison itself has not been run. The evaluation command exists now, and the baseline with the default text is in decision 24. Decision 20 adds a second question to it: how much slide text to embed at all.
+
+**Result (2026-10-08).** The comparison is run, on three question sets, and written up in decision 27 with every variant. Short version: no single version of the slide text wins on every set, because which one is best depends on whether the question uses the slide's words or the lecturer's. Raw OCR is the weakest overall, cleaned OCR is best only on the first set, and the vision model's text stays the default, with the diagram description kept. The bigger gain came from searching the speech alone as well and merging the two lists.
 
 **What the code lecture already shows.** On a frame of a terminal session, the model's output is the terminal text line by line with indentation, and Tesseract's output for the same frame is a jumble (`Terminal”|File.|Edit:|Scrolibach)|...|npartante`). On that lecture the share of OCR words that the model's text lacks has a median of 62%, against 29-36% on the slide lectures. For code, the model's text is clearly the better source, so the open question is mostly about slide lectures.
 
@@ -316,7 +318,7 @@ Speech recognition runs at about 17 to 19 times real time on the GPU. The vision
 
 **What I measured about the cuts.** Because cuts ignore slides, they almost always fall in the middle of a slide: 31 of 32 cuts in lecture 1, 30 of 32 in lecture 2 and 22 of 29 in lecture 3. By hand I also saw a search hit whose speech preview was about one topic while the matching part was later in the chunk, which suggests chunks sometimes mix topics.
 
-**Experiment I will run later.** Once a bucket has at least about 250 words, close it at the next real slide change (a changed title, not just a new keyframe), and use the current rule when there are no titles (the code lecture has titles on only 12 of 73 slides). I will compare it with the current rule by hit@k on the evaluation set (decision 23) and keep whichever finds the right chunk more often. Chunk size will be tested the same way.
+**Experiment (run 2026-10-08, results in decision 27).** Once a bucket has at least about 250 words, close it at the next real slide change (a changed title, not just a new keyframe), and use the current rule when there are no titles (the code lecture has titles on only 12 of 73 slides). It is a setting now (`CHUNK_SLIDE_AWARE`). It gave 89 chunks instead of 96, a small gain on the harder set when the speech is searched as well, a loss on the third set and a loss without that, so I left it off. Chunk size was tested the same way: about 350 words (96 chunks) beat about 200 (170 chunks) and about 500 (67 chunks).
 
 ---
 
@@ -338,7 +340,7 @@ So 55 of 96 chunks lost the end of their text. The embedded text starts with the
 
 **Fix.** The limit is now 3,072 tokens (the model accepts up to 8,192), the batch size went from 8 to 4 for a 6 GB card, and the service prints a warning if any text is still cut. The token limit is part of the cache key, because otherwise the 96 vectors already saved from cut-off text would have been reused silently. No text is cut now, and embedding all 96 chunks takes about two seconds per lecture once the model is loaded (peak GPU memory about 2.7 GB). A quick check by hand gave the same top results before and after the change.
 
-**What this leaves open.** More than half of what is embedded is slide material, so the vector may lean toward the slide and away from the speech. Whether that helps or hurts is a measurement. The comparison I plan: speech only, speech plus slide text, and everything, with the three versions of the slide text (decision 15). I would trim repeated slide text and cap descriptions only if the numbers show the slide text drowning out the speech.
+**What this leaves open.** More than half of what is embedded is slide material, so the vector may lean toward the slide and away from the speech. Whether that helps or hurts is a measurement. The comparison I plan: speech only, speech plus slide text, and everything, with the three versions of the slide text (decision 15). I would trim repeated slide text and cap descriptions only if the numbers show the slide text drowning out the speech. **Result (2026-10-08, decision 27):** searching the speech alone beat the full text on two of three question sets, and worse on the third, where the questions repeat the slide's words. So the slide text does drown the speech for some questions and help for others. I did not trim it. I store both vectors for every chunk and merge the two searches.
 
 **Lesson.** A model's input limit is a ceiling and not a target, so I measure in the unit the model uses (tokens, not words) and never let text be cut silently.
 
@@ -364,7 +366,7 @@ So 55 of 96 chunks lost the end of their text. The embedded text starts with the
 
 **Problem.** A language model can invent a timestamp as easily as a fact. The answer has to cite the lecture, the time and the slide, and those citations must be real.
 
-**Chosen.** The five closest chunks are numbered 1 to 5 and given to Gemini as excerpts. The model must reply in a fixed form with two fields, `answerable` and `answer`, and may cite only excerpt numbers such as `[2]`. It never writes a lecture name or a time. My code then looks up each cited number and builds the source list from that chunk's stored data: lecture, time range, slide titles and the picture of its first slide. A citation to a number that does not exist is removed and reported, an answer that claims to be answerable but cites nothing valid gets a warning, and if the search finds nothing, the model is not called at all. The instructions say to use only the excerpts and no outside knowledge, to say so when they do not cover the question, to cite after every statement, and to treat the excerpts as data and not as instructions. The temperature is 0, and the thinking level is low.
+**Chosen.** The five closest chunks are numbered 1 to 5 and given to Gemini as excerpts. The model must reply in a fixed form with two fields, `answerable` and `answer` (decision 26 later replaced the yes or no box with `full`, `partial` and `none`), and may cite only excerpt numbers such as `[2]`. It never writes a lecture name or a time. My code then looks up each cited number and builds the source list from that chunk's stored data: lecture, time range, slide titles and the picture of its first slide. A citation to a number that does not exist is removed and reported, an answer that claims to be answerable but cites nothing valid gets a warning, and if the search finds nothing, the model is not called at all. The instructions say to use only the excerpts and no outside knowledge, to say so when they do not cover the question, to cite after every statement, and to treat the excerpts as data and not as instructions. The temperature is 0, and the thinking level is low.
 
 **Why a fixed form.** The same reason as the vision step (decision 14): there is no sentence to string-match for "I cannot answer this".
 
@@ -460,4 +462,92 @@ By type, the first result is right for: paraphrased 0.71 of the time (MRR 0.857)
 - The claim check is one pass per answer, and one call was a strictness call.
 - It was one run of the answer step.
 
-**Next.** Two small changes to the answer step: ask for a citation on every sentence, including the first (and warn in code when a sentence has none), and let an answer that gives only the covered part of a question set "answerable". Then the settings experiments of decisions 15, 19 and 20, judged by hit@1 and MRR on this set, then keyword search merged with this search, and reranking if the decoy questions stay weak, since a reranker is built for exactly that case.
+**Next.** Two small changes to the answer step: ask for a citation on every sentence, including the first (and warn in code when a sentence has none), and let an answer that gives only the covered part of a question set "answerable". Then the settings experiments of decisions 15, 19 and 20, judged by hit@1 and MRR on this set, then keyword search merged with this search, and reranking if the decoy questions stay weak, since a reranker is built for exactly that case. The two answer-step changes are done, see decision 26.
+
+---
+
+## 26. Two changes to the answer step: a citation on every sentence, and "partly covered"
+
+**Problem.** The claim check in decision 25 and the answer run showed two weak spots.
+- Five answers opened with a short yes or no sentence that had no citation. It was true, and the next sentence repeated it with a citation, but a sentence without a number has no visible source, so a reader cannot check it.
+- The answer form had a yes or no box, `answerable`, and nothing in between. A question the lectures only half answer got a good partial answer with sources, and then the box said no, so the command printed "NOT FOUND" above a useful answer. Once the box said yes above a text that said the material does not state it. The label and the text disagreed.
+
+**Chosen.**
+- *A citation on every sentence.* The instructions now say that every sentence stating something from the excerpts ends with the excerpt number, written before the full stop, including the first sentence and any yes or no opening. A sentence that only says what the excerpts do not cover needs none. My code checks it as well: it splits the answer into sentences and adds a warning for each one without a citation, showing the start of up to two. It only warns and never changes the text. It skips pieces under three words and sentences that talk about "the material" or "the excerpts", because those say what is missing. It does not cut a sentence at "i.e.", and a citation placed after the full stop goes back to its sentence.
+- *Three coverage values instead of yes or no.* The form is now the answer first and then `coverage`, which is `full`, `partial` or `none`. The answer comes first so that the label is chosen after the text and agrees with it. Only `none` is a refusal. A `partial` answer keeps its text and its sources, and the command prints "PARTLY COVERED" above it, with a sentence on what is missing. The evaluation now also counts how many partly answered questions get `partial`, and how many fully answered ones do (which would be hedging).
+
+**Checked before spending any quota.** I ran the new sentence check on the 40 stored answers from before the change. It flags exactly the five answers found by the claim check, and nothing else, after two bugs found while testing it: it cut a sentence at "i.e.", and it left a citation that followed a full stop on the wrong sentence. 26 new tests cover the sentence rules, the coverage values, the banner and the new evaluation counts. Making `partial` count as a refusal again makes two of them fail. One real call with a made-up question that had two parts, only one of them covered by its excerpt, came back as `partial` with the covered part cited and the missing part named.
+
+**Results** (the 40 harder questions again, one run, temperature 0, 205 tests pass):
+- All 4 questions the lectures do not cover are still refused, and 33 of the 36 answers still cite the right place.
+- Answers with an uncited sentence: 2 of 36, against 5 before. Four of the old five are fixed and one remains, and a new one appeared. Both of the remaining ones still open with "Yes" or "No" and no number, so the prompt reduced the problem and did not remove it. The warning shows them.
+- Wrong refusals fell from 3 to 2, and both are search misses: in one the right chunk is not in the top 10, in the other it is 6th and the answer step reads 5. The one that was counted as a wrong refusal only because of the old yes or no box, where the answer correctly said the lecture only names a test without explaining it, is now `partial` with its source.
+- Of the 2 partly answered questions, 1 got `partial`. The other is the search miss above.
+- Of the 34 fully answered questions, 3 got `partial`. In all three the answer itself says the retrieved excerpts lack part of it, and the claim check had found the same gap: the chunk with the missing part was not retrieved. So the label was right about the excerpts, and my "hedging" count is too blunt. It compares the label with what the lecture says, while the label can only reflect the five excerpts the answer step had.
+
+**What this does not show.** One run of 36 questions. The model's answers vary a little from run to run, so 5 against 2 is a trend and not a precise rate. One answer repeats a mishearing from the transcript as if the lecturer had said it, and the claim check cannot catch that, because the excerpt contains the same mishearing.
+
+**Next.** The settings experiments of decisions 15, 19 and 20, judged by hit@1 and MRR on the harder set, then keyword search merged with this search, and reranking if the decoy questions stay weak. The settings experiments are done, see decision 27.
+
+---
+
+## 27. Tuning the settings: which text is searched, chunk size, slide-aware cutting, and two searches merged
+
+**Problem.** Four choices were only settings so far (decisions 15, 19 and 20): which version of the slide text goes into the embedded text, whether the diagram description goes in too, how big a chunk is, and whether chunks are cut at slide changes. I wanted to choose them by measurement, and to report the numbers before and after tuning without fooling myself.
+
+**What I built for it.** Every one of these settings can be set with an environment variable, and each variant gets its own database folder, so variants do not overwrite each other. Chunking got three new options: no slide text at all, no description, and cutting at real slide changes (once a chunk has at least 250 words, it ends at the next change of slide title; with no titles the old length rule applies). Search got a second kind of stored vector: each chunk can be stored twice, once embedded from its speech alone (`speech`) and once from its full text (`full`). A search can use one of them, or both: each is searched on its own and the two ranked lists are merged by reciprocal rank fusion (a result at rank r in a list adds 1 / (60 + r) to its score; the score shown is its best similarity). The evaluation got a stricter hit, so that large chunks are not favoured just for being large: a chunk only counts if it covers at least half of the answer range. Every saved run records the settings it used. The tests went from 205 to 238, and for the main new rules I broke the code on purpose once to see a test go red.
+
+**The wording problem.** The first two sets disagreed about which text is best. I measured why: for each question, the share of its content words found in the slide text of its answer place, and in the speech of that place. The questions of the first set, which come from exercise sheets, share 45% of their words with the slide text and 59% with the speech. The questions of the harder set share 24% and 40%. Both are closer to the speech than to the slides, but on the first set the slides matter more, and the results show it: cleaned OCR text is best on the first set, speech alone is best on the harder one. Neither set can choose alone. So I wrote a third set (30 questions, 27 with an answer and 3 not covered) the same way as in decision 25, with these differences: the questions are in natural student wording, with no attempt to echo the slides or the lecturer, and I wrote it without looking at the search or any result. Two questions were dropped after the second pass (one ambiguous, one multi-hop whose second place was weak), and one not-covered question became partly covered, as before. These 27 questions are the check on the choice. They share 31% of their words with the slides and 46% with the speech.
+
+**Results.** hit@1 / MRR for every variant I ran. Dense search over one vector unless it says fusion. All variants use 350-word chunks unless stated, and "description" is the diagram description.
+
+| Variant | First set (11) | Harder set (36) | New set (27) | All 74, MRR |
+|---|---|---|---|---|
+| Baseline: vision text and description, one search | 0.91 / 0.939 | 0.58 / 0.711 | 0.59 / 0.764 | 0.765 |
+| Raw OCR text and description | 0.82 / 0.909 | 0.64 / 0.753 | 0.52 / 0.671 | 0.746 |
+| Cleaned OCR text and description | 1.00 / 1.000 | 0.56 / 0.688 | 0.63 / 0.738 | 0.753 |
+| Vision text, no description | 0.91 / 0.939 | 0.69 / 0.780 | 0.59 / 0.765 | 0.798 |
+| Description only, no slide text | 0.82 / 0.894 | 0.53 / 0.716 | 0.56 / 0.689 | 0.733 |
+| Speech only | 0.64 / 0.780 | 0.78 / 0.869 | 0.70 / 0.779 | 0.823 |
+| **Fusion: speech vector + full text with description** | 0.82 / 0.882 | 0.75 / 0.844 | **0.70 / 0.815** | **0.839** |
+| Fusion, no description | 0.73 / 0.833 | 0.75 / 0.837 | 0.70 / 0.812 | 0.827 |
+| Fusion, cleaned OCR, no description | 0.91 / 0.927 | 0.72 / 0.827 | 0.67 / 0.793 | 0.830 |
+| Fusion, cut at slide changes | 0.82 / 0.886 | 0.78 / 0.853 | 0.67 / 0.787 | 0.834 |
+| Fusion, chunks of about 200 words (170 chunks) | 0.73 / 0.821 | 0.72 / 0.819 | not run | |
+| Fusion, chunks of about 500 words (67 chunks) | 0.64 / 0.791 | 0.61 / 0.789 | not run | |
+| One search, cut at slide changes (89 chunks) | 0.73 / 0.833 | 0.56 / 0.705 | not run | |
+
+Pooled over the three sets, the best variants in hit@1 are the fusion with description and the fusion cut at slide changes (0.743 each), against 0.635 for the baseline. The pooled column includes the two sets I tuned on, so it flatters whatever won; the third column is the fairer one.
+
+**What each experiment says.**
+- *Which slide text.* Raw OCR is mixed: ahead of the baseline on the harder set (hit@1 0.64 against 0.58), behind it on the other two, and the worst variant of all on the new set. Cleaned OCR beats raw OCR on two of the three sets, but pooled the gap is small (MRR 0.753 against 0.746). Cleaned OCR is best on the easy set, and its MRR is below the baseline on the other two. The description alone is weak. Taking the description out of the baseline helped on the harder set (0.58 to 0.69 hit@1) and changed nothing on the other two. Taking out all slide text (speech only) is the best single search on the harder set and the new set, and the worst on the first set (0.64).
+- *Questions that echo the slides, and questions that echo the speech.* I split all 74 questions in two halves by that measure. On the 37 questions closest to the slide text, hit@1 is 0.70 for the baseline, 0.70 for the fusion and 0.59 for speech only. On the 37 closest to the speech, it is 0.57, 0.78 and 0.86. So speech only wins where the question uses the lecturer's words and loses where it uses the slide's words, and the baseline does the opposite. The fusion stays near the top in both halves, because it searches both.
+- *Fusion.* It improves the baseline on the harder set (hit@1 0.58 to 0.75, MRR 0.711 to 0.844) and on the new set (0.59 to 0.70, MRR 0.764 to 0.815), and it is worse on the first set (0.91 to 0.82, MRR 0.939 to 0.882). Of the 11 questions, two changed rank: one fell from rank 1 to rank 5 (the one whose answer is in a different lecture from the sheet it came from) and one rose from rank 3 to 2. On the harder set the first result is right more often for paraphrased questions (0.71 to 1.00), detail questions (0.58 to 0.75), decoys (0.44 to 0.67) and multi-hop questions (0.67 to 1.00). It is worse for the 2 partly covered questions (0.50 to 0.00, one question), which are too few to say anything. All 36 harder questions now have a hit in the top 10 (before: 34).
+- *Chunk size.* 350 words beats 200 and 500 on both sets, in hit@1 and MRR, and on the stricter hit on the harder set it beats 200 words and ties 500 (strict MRR 0.768, against 0.711 and 0.767). I did not test why. A chunk of 200 words may hold too little context, and one of 500 may hold more than one topic. The stricter hit is not useful on the first set, because its answer ranges are about 17 minutes wide and a half-coverage rule then favours big chunks (strict hit@1 0.45 for 500 words against 0.18 for 350), so I did not use it there.
+- *Cutting at slide changes.* A small gain with fusion on the harder set (MRR 0.844 to 0.853; decoy questions 0.67 to 0.89), nothing on the first set, a loss on the new set (0.815 to 0.787), and a loss without fusion. It is not worth an extra rule, so I left it off. The option stays (`CHUNK_SLIDE_AWARE`).
+- *With or without the description, in the fusion.* With it is ahead by a hair on all three sets in MRR (0.882 against 0.833, 0.844 against 0.837, 0.815 against 0.812). I kept it, but only the first of those gaps is more than noise.
+
+**Chosen.** The default is now: 350-word chunks, the vision model's slide text and the description in the full text, no cutting at slide changes, and every search runs on both stored vectors, merged by reciprocal rank fusion. I rebuilt the database for it (the old one is kept aside), checked that all three sets give the numbers in the table, and the exit check still passes. The rule I used: prefer the variant that does well on every kind of wording, and judge it on questions I did not tune on.
+
+**Before and after.**
+
+| | Questions | Baseline hit@1 / MRR | Tuned hit@1 / MRR |
+|---|---|---|---|
+| First set | 11 | 0.91 / 0.939 | 0.82 / 0.882 |
+| Harder set | 36 | 0.58 / 0.711 | 0.75 / 0.844 |
+| New set | 27 | 0.59 / 0.764 | 0.70 / 0.815 |
+| All three | 74 | 0.635 / 0.765 | 0.743 / 0.839 |
+
+hit@3 over all 74: 0.878 to 0.919. hit@5: 0.946 to 0.973. On the new set, strict hit@1 (the half-coverage rule) goes from 0.56 to 0.67.
+
+**What this does not show.**
+- The new set has 27 questions, so one question is 3.7 points of hit@1, and a difference of 0.03 is noise. The first set has 11.
+- I chose among ten variants partly by the new set, so the number for the winner on it is a little optimistic. A clean test needs another new set.
+- The gain is real on two of three sets and the first set got worse by one question, so it is a gain for questions in a student's own words, which is what the later sets were built to test.
+- The best score of the questions the lectures do not cover (0.56 to 0.65 on the new set) still lies inside the range of the answerable ones (0.39 to 0.74), so refusing still rests on the answer step, and I have not run the answer step on the new set or after this change.
+- The answer places of all three sets come from two separate passes, and I have not checked every one by hand.
+- Keyword search and reranking are not tried yet. Fusion costs a second embedding per chunk and a second search per question. I did not measure the time.
+
+**A failure of my own tooling.** Two evaluations that finished in the same second saved to the same file name, and the file came out as a mix of both (a second file was overwritten). I noticed because one file would not parse, found the cause, re-ran the three lost evaluations one after the other, and changed the evaluation so that it never overwrites a results file: a second run in the same second gets a counter in its name. A new test fails if I put the old behaviour back.
+
+**Next.** Keyword search (BM25) merged with the same fusion code, reranking for the decoy questions, running the answer step on all three sets with the new search, a repeat of the claim-by-claim check, and the comparison with the Gemini embedding model (decision 12).
