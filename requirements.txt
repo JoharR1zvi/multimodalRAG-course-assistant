@@ -8,6 +8,7 @@ google-genai
 
 numpy
 sentence-transformers
+qdrant-client
 
 # torch is a dependency of sentence-transformers. On Windows pip installs the CPU-only build,
 # so for the GPU install it first: pip install torch --index-url https://download.pytorch.org/whl/cu128

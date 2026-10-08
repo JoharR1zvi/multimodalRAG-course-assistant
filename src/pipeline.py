@@ -25,6 +25,7 @@ from src.processing.ocr_clean import clean_ocr_text
 from src.processing.alignment import align
 from src.processing.knowledge import build_knowledge_objects
 from src.processing.chunking import chunk_lecture
+from src.database.indexing import index_lecture
 
 from src.lecture_settings import load_lecture_settings
 from src.config import DELETE_AUDIO_AFTER_TRANSCRIPT
@@ -34,7 +35,7 @@ RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 
 # The stage names you are allowed to pass to --force, in pipeline order
-STAGE_NAMES = ["audio", "transcript", "keyframes", "ocr", "vision", "clean", "align", "knowledge", "chunk"]
+STAGE_NAMES = ["audio", "transcript", "keyframes", "ocr", "vision", "clean", "align", "knowledge", "chunk", "index"]
 
 # File types we accept as a lecture video
 VIDEO_EXTENSIONS = [".mp4", ".mkv", ".mov", ".avi", ".webm"]
@@ -86,7 +87,7 @@ def run_stage(stage_name: str, timings: list, stage_function, *args, **kwargs) -
 
 
 def process_lecture(lecture_name: str, force_stages: list) -> list:
-    # Runs all 9 stages for one lecture. Returns the list of (stage_name, seconds) timings.
+    # Runs all 10 stages for one lecture. Returns the list of (stage_name, seconds) timings.
 
     video_path = find_video(lecture_name)
     out_dir = PROCESSED_DIR / lecture_name
@@ -213,6 +214,16 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
         "chunk", timings, chunk_lecture,
         alignment_path, knowledge_path, chunks_path,
         force=("chunk" in force_stages or "knowledge" in force_stages),
+    )
+
+    # Stage 10 (Phase 2): embed the chunks and save them in the Qdrant database.
+    # This uses the GPU for the embedding model. The transcription model from stage 2 is
+    # already gone by now, so the two never sit in GPU memory together.
+    # New chunks mean new vectors, so redoing "chunk" or "knowledge" redoes this stage too.
+    run_stage(
+        "index", timings, index_lecture,
+        chunks_path,
+        force=("index" in force_stages or "chunk" in force_stages or "knowledge" in force_stages),
     )
 
     return timings

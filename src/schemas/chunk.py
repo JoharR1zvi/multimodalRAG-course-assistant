@@ -32,3 +32,10 @@ class Chunk(BaseModel):
     # Neighbours, so a hit can later be widened with the chunk before or after it (None at the ends)
     prev_chunk_id: str | None = None
     next_chunk_id: str | None = None
+
+
+class SearchResult(BaseModel):
+    # One hit from a search: the chunk that was found, how well it matched, and which search found it
+    chunk: Chunk
+    score: float                         # for dense search: cosine similarity, 1.0 = identical meaning
+    method: str                          # "dense" for now; "bm25" and "hybrid" come later

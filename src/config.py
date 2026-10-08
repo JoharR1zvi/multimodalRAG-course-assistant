@@ -66,6 +66,16 @@ EMBEDDING_BATCH_SIZE = int(os.environ.get("EMBEDDING_BATCH_SIZE", "4"))
 # measured up to 2549 tokens, so 3072 keeps all of them. bge-m3 itself accepts up to 8192.
 EMBEDDING_MAX_TOKENS = int(os.environ.get("EMBEDDING_MAX_TOKENS", "3072"))
 
+# --- Vector database (vector_store.py) ---
+
+# Qdrant runs inside our own program and keeps its data in this folder (no server needed).
+# Only one program can have the folder open at a time.
+QDRANT_PATH = os.environ.get("QDRANT_PATH", "data/qdrant")
+
+# Every embedding model gets its own collection: "<prefix>__<model name>", for example
+# "course_chunks__bge-m3". Vectors from two different models must never be mixed.
+QDRANT_COLLECTION_PREFIX = "course_chunks"
+
 # --- OCR cleanup defaults (ocr_clean.py) ---
 
 # Drop OCR words Tesseract is less sure about than this (0 to 1). Garbage like "oP" or "sso"

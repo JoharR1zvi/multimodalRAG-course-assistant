@@ -32,6 +32,9 @@ data/processed/*
 data/cache/
 data/qdrant/
 
+# Evaluation questions (they come from course material, so they stay local)
+data/eval/
+
 # IDE
 .vscode/
 .idea/
