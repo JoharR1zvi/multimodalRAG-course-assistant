@@ -85,3 +85,8 @@ class KnowledgeObject(BaseModel):
     content_type: str = ""               # text_slide / diagram / code / ... ("" = unknown)
     title: str = ""                      # slide title ("" = none)
     slide_number: int | None = None      # slide/page number if visible on screen
+
+    # Two more versions of the slide text, kept next to the raw OCR text (slide_text) so that
+    # chunking and retrieval can compare them. "" = that stage did not run for this slide.
+    cleaned_text: str = ""               # OCR text after removing interface words and junk (from ocr_clean.py)
+    clean_text: str = ""                 # the vision model's reading of the slide text (from vision.py)

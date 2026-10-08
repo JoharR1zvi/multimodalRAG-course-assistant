@@ -117,7 +117,14 @@ def build_knowledge_objects(
         else:
             content_type = keyframe.content_type
 
-        # 3e. Build the object (pydantic checks every field has the right type)
+        # 3e. cleaned_text can be None (OCR cleanup not done) - the schema needs a string
+        # (clean_text is already a plain string with "" as its default)
+        if keyframe.cleaned_text is None:
+            cleaned_text = ""
+        else:
+            cleaned_text = keyframe.cleaned_text
+
+        # 3f. Build the object (pydantic checks every field has the right type)
         knowledge_object = KnowledgeObject(
             lecture_id=lecture_id,
             start_timestamp=keyframe.timestamp,
@@ -129,6 +136,8 @@ def build_knowledge_objects(
             content_type=content_type,
             title=keyframe.title,
             slide_number=keyframe.slide_number,
+            cleaned_text=cleaned_text,
+            clean_text=keyframe.clean_text,
         )
 
         knowledge_objects.append(knowledge_object)

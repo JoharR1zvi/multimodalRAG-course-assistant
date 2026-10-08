@@ -24,6 +24,7 @@ from src.processing.vision import describe_images
 from src.processing.ocr_clean import clean_ocr_text
 from src.processing.alignment import align
 from src.processing.knowledge import build_knowledge_objects
+from src.processing.chunking import chunk_lecture
 
 from src.lecture_settings import load_lecture_settings
 from src.config import DELETE_AUDIO_AFTER_TRANSCRIPT
@@ -33,7 +34,7 @@ RAW_DIR = Path("data/raw")
 PROCESSED_DIR = Path("data/processed")
 
 # The stage names you are allowed to pass to --force, in pipeline order
-STAGE_NAMES = ["audio", "transcript", "keyframes", "ocr", "vision", "clean", "align", "knowledge"]
+STAGE_NAMES = ["audio", "transcript", "keyframes", "ocr", "vision", "clean", "align", "knowledge", "chunk"]
 
 # File types we accept as a lecture video
 VIDEO_EXTENSIONS = [".mp4", ".mkv", ".mov", ".avi", ".webm"]
@@ -85,7 +86,7 @@ def run_stage(stage_name: str, timings: list, stage_function, *args, **kwargs) -
 
 
 def process_lecture(lecture_name: str, force_stages: list) -> list:
-    # Runs all 8 stages for one lecture. Returns the list of (stage_name, seconds) timings.
+    # Runs all 9 stages for one lecture. Returns the list of (stage_name, seconds) timings.
 
     video_path = find_video(lecture_name)
     out_dir = PROCESSED_DIR / lecture_name
@@ -108,6 +109,7 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
     junk_terms_path = out_dir / "junk_terms.json"
     alignment_path = out_dir / "alignment.json"
     knowledge_path = out_dir / "knowledge_objects.json"
+    chunks_path = out_dir / "chunks.json"
 
     timings = []
 
@@ -203,6 +205,14 @@ def process_lecture(lecture_name: str, force_stages: list) -> list:
         "knowledge", timings, build_knowledge_objects,
         alignment_path, visual_metadata_path, knowledge_path,
         force=("knowledge" in force_stages),
+    )
+
+    # Stage 9 (Phase 2): cut the lecture into retrieval chunks of about 350 words.
+    # Redoing the knowledge stage changes the slides, so the chunks are rebuilt after it too.
+    run_stage(
+        "chunk", timings, chunk_lecture,
+        alignment_path, knowledge_path, chunks_path,
+        force=("chunk" in force_stages or "knowledge" in force_stages),
     )
 
     return timings

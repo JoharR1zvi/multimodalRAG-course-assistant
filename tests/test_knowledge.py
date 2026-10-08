@@ -163,6 +163,29 @@ def test_slide_information_is_carried_into_the_object(tmp_path):
     assert objects[0]["image_path"] == "frame_0.0.jpg"
 
 
+def test_all_three_versions_of_the_slide_text_are_carried_into_the_object(tmp_path):
+    # raw OCR (slide_text), cleaned OCR (cleaned_text) and the vision model's reading (clean_text)
+    slides = [make_slide(0.0, cleaned_text="cleaned ocr", clean_text="vision text")]
+    speech = [make_speech(5.0, 8.0, "a", 0.0)]
+
+    objects = run_knowledge(tmp_path, slides, speech)
+
+    assert objects[0]["slide_text"] == "ocr 0.0"
+    assert objects[0]["cleaned_text"] == "cleaned ocr"
+    assert objects[0]["clean_text"] == "vision text"
+
+
+def test_missing_cleanup_results_become_empty_strings(tmp_path):
+    # cleaned_text None = "the OCR cleanup stage did not run"; a slide without clean_text gets ""
+    slides = [make_slide(0.0, cleaned_text=None)]
+    speech = [make_speech(5.0, 8.0, "a", 0.0)]
+
+    objects = run_knowledge(tmp_path, slides, speech)
+
+    assert objects[0]["cleaned_text"] == ""
+    assert objects[0]["clean_text"] == ""
+
+
 def test_the_lecture_id_is_the_name_of_the_output_folder(tmp_path):
     slides = [make_slide(0.0)]
     speech = [make_speech(5.0, 8.0, "a", 0.0)]

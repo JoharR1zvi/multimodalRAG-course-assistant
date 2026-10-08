@@ -22,6 +22,8 @@ import json
 import sys
 from pathlib import Path
 
+from src.config import CHUNK_MAX_WORDS
+from src.schemas.chunk import Chunk
 from src.schemas.knowledge_object import (
     AlignedSegment,
     KnowledgeObject,
@@ -30,6 +32,9 @@ from src.schemas.knowledge_object import (
 )
 
 PROCESSED_DIR = Path("data/processed")
+
+# How far (in seconds) the last speech piece of a chunk may run past the end of its slide
+SPEECH_OVERRUN_SECONDS = 10.0
 
 PASS = "PASS"
 FAIL = "FAIL"
@@ -303,6 +308,152 @@ def check_lecture_data(
     return results
 
 
+def check_chunks_data(
+    knowledge: list,
+    alignment: list,
+    chunks: list,
+    max_words: int,
+) -> list:
+    # Phase 2 checks on chunks.json. Takes plain lists (no files), like check_lecture_data.
+    # knowledge: list of KnowledgeObject      alignment: list of AlignedSegment
+    # chunks: list of Chunk                   max_words: the hard maximum a chunk may have
+
+    results = []
+
+    if len(chunks) == 0:
+        add_result(results, FAIL, "chunks exist", "chunks.json is empty")
+        return results
+
+    add_result(results, PASS, "chunks exist", f"{len(chunks)} chunks")
+
+    # ---------- ids and neighbours ----------
+
+    ids = set()
+    for chunk in chunks:
+        ids.add(chunk.chunk_id)
+
+    if len(ids) == len(chunks):
+        add_result(results, PASS, "chunk ids are unique")
+    else:
+        add_result(results, FAIL, "chunk ids are unique", f"{len(chunks) - len(ids)} duplicated ids")
+
+    broken_links = 0
+    for i in range(len(chunks)):
+        if i > 0 and chunks[i].prev_chunk_id != chunks[i - 1].chunk_id:
+            broken_links = broken_links + 1
+        if i == 0 and chunks[i].prev_chunk_id is not None:
+            broken_links = broken_links + 1
+        if i < len(chunks) - 1 and chunks[i].next_chunk_id != chunks[i + 1].chunk_id:
+            broken_links = broken_links + 1
+        if i == len(chunks) - 1 and chunks[i].next_chunk_id is not None:
+            broken_links = broken_links + 1
+
+    if broken_links == 0:
+        add_result(results, PASS, "chunks point at their neighbours")
+    else:
+        add_result(results, FAIL, "chunks point at their neighbours", f"{broken_links} broken prev/next links")
+
+    # ---------- size ----------
+
+    too_big = 0
+    word_counts = []
+    for chunk in chunks:
+        words = count_words(chunk.text)
+        word_counts.append(words)
+        if words > max_words:
+            too_big = too_big + 1
+
+    if too_big == 0:
+        add_result(results, PASS, "no chunk is over the maximum size", f"largest chunk has {max(word_counts)} words (maximum {max_words})")
+    else:
+        add_result(results, FAIL, "no chunk is over the maximum size", f"{too_big} chunks have more than {max_words} words")
+
+    sorted_counts = sorted(word_counts)
+    median_words = sorted_counts[len(sorted_counts) // 2]
+    add_result(results, INFO, "chunk size in words", f"smallest {sorted_counts[0]}, median {median_words}, largest {sorted_counts[-1]}")
+
+    # ---------- times lie inside the slides the chunk lists ----------
+
+    slide_end = {}
+    for knowledge_object in knowledge:
+        slide_end[knowledge_object.start_timestamp] = knowledge_object.end_timestamp
+
+    first_slide_time = min(slide_end.keys())
+
+    outside = 0
+    unknown_slide = 0
+    for chunk in chunks:
+        if len(chunk.slide_timestamps) == 0:
+            outside = outside + 1
+            continue
+
+        known = True
+        for slide_time in chunk.slide_timestamps:
+            if slide_time not in slide_end:
+                known = False
+        if not known:
+            unknown_slide = unknown_slide + 1
+            continue
+
+        earliest_start = min(chunk.slide_timestamps)
+        latest_end = 0.0
+        for slide_time in chunk.slide_timestamps:
+            if slide_end[slide_time] > latest_end:
+                latest_end = slide_end[slide_time]
+
+        # Speech before the first slide is kept in the first chunk, so it may start before its slides
+        starts_too_early = chunk.start_timestamp < earliest_start and chunk.start_timestamp >= first_slide_time
+
+        # A speech piece belongs to the slide showing when it STARTS, so the last piece of a
+        # chunk may run a few seconds past the end of that slide (7.4 s at most on our lectures)
+        ends_too_late = chunk.end_timestamp > latest_end + SPEECH_OVERRUN_SECONDS
+
+        if starts_too_early or ends_too_late:
+            outside = outside + 1
+
+    if outside == 0 and unknown_slide == 0:
+        add_result(results, PASS, "chunk times lie inside their slides")
+    else:
+        add_result(results, FAIL, "chunk times lie inside their slides", f"{outside} chunks reach outside their slides, {unknown_slide} name an unknown slide")
+
+    # ---------- nothing lost ----------
+
+    # Every slide (blank section titles included) is listed by at least one chunk
+    covered = set()
+    for chunk in chunks:
+        for slide_time in chunk.slide_timestamps:
+            covered.add(slide_time)
+
+    uncovered = 0
+    for knowledge_object in knowledge:
+        if knowledge_object.start_timestamp not in covered:
+            uncovered = uncovered + 1
+
+    if uncovered == 0:
+        add_result(results, PASS, "every slide is in some chunk", f"{len(knowledge)} slides")
+    else:
+        add_result(results, FAIL, "every slide is in some chunk", f"{uncovered} slides are in no chunk")
+
+    # Every speech piece appears, word for word, in a chunk that covers its time
+    lost_pieces = 0
+    for segment in alignment:
+        found = False
+        for chunk in chunks:
+            if chunk.start_timestamp <= segment.start and segment.end <= chunk.end_timestamp:
+                if segment.text.strip() in chunk.text:
+                    found = True
+                    break
+        if not found:
+            lost_pieces = lost_pieces + 1
+
+    if lost_pieces == 0:
+        add_result(results, PASS, "all speech is in some chunk", f"{len(alignment)} speech pieces found")
+    else:
+        add_result(results, FAIL, "all speech is in some chunk", f"{lost_pieces} speech pieces are in no chunk")
+
+    return results
+
+
 def load_json_list(path: Path, schema) -> list:
     # Reads a JSON file that holds a list, and checks every item against the schema
     with open(path, encoding="utf-8") as f:
@@ -379,6 +530,29 @@ def check_lecture(lecture_name: str, processed_dir: Path) -> list:
             loaded["alignment.json"],
             keyframe_filenames,
             missing_images,
+        )
+    )
+
+    # ---------- Phase 2: chunks.json (only checked when it exists) ----------
+
+    chunks_path = lecture_dir / "chunks.json"
+
+    if not chunks_path.exists():
+        add_result(results, INFO, "chunks.json", "not built yet (run the pipeline to build it)")
+        return results
+
+    try:
+        chunks = load_json_list(chunks_path, Chunk)
+    except Exception as error:
+        add_result(results, FAIL, "chunks.json loads and has the right shape", str(error)[:150])
+        return results
+
+    results.extend(
+        check_chunks_data(
+            loaded["knowledge_objects.json"],
+            loaded["alignment.json"],
+            chunks,
+            CHUNK_MAX_WORDS,
         )
     )
 

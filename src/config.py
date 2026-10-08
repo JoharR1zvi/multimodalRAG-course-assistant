@@ -22,6 +22,30 @@ GEMINI_REQUESTS_PER_MINUTE = int(os.environ.get("GEMINI_REQUESTS_PER_MINUTE", "1
 # Put DELETE_AUDIO_AFTER_TRANSCRIPT=false in .env to keep it.
 DELETE_AUDIO_AFTER_TRANSCRIPT = os.environ.get("DELETE_AUDIO_AFTER_TRANSCRIPT", "true").strip().lower() != "false"
 
+# --- Chunking defaults (chunking.py) ---
+
+# All the lectures belong to one course for now. The id goes into every chunk.
+COURSE_ID = os.environ.get("COURSE_ID", "course_01")
+
+# A chunk is sealed as soon as it holds this many words of speech...
+CHUNK_TARGET_WORDS = 350
+
+# ...and a speech piece is never added if it would push the chunk over this many words.
+CHUNK_MAX_WORDS = 450
+
+# How many speech pieces at the end of a chunk are repeated at the start of the next one,
+# so an idea that was cut at the boundary appears in both chunks.
+CHUNK_OVERLAP_SEGMENTS = 1
+
+# A last chunk with fewer NEW words than this is merged into the chunk before it
+# (if the result still fits under the maximum).
+CHUNK_MIN_LAST_WORDS = 100
+
+# Which version of the slide text goes into the embedded string: "slide_text" (raw OCR),
+# "cleaned_text" (cleaned OCR) or "clean_text" (the vision model's reading).
+# The three are compared in a later experiment (decision 15).
+CHUNK_SLIDE_TEXT_SOURCE = os.environ.get("CHUNK_SLIDE_TEXT_SOURCE", "clean_text")
+
 # --- OCR cleanup defaults (ocr_clean.py) ---
 
 # Drop OCR words Tesseract is less sure about than this (0 to 1). Garbage like "oP" or "sso"
