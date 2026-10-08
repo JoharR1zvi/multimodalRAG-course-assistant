@@ -28,6 +28,10 @@ data/processed/*
 !data/raw/.gitkeep
 !data/processed/.gitkeep
 
+# Embedding cache and local vector database (both are rebuilt from the processed data)
+data/cache/
+data/qdrant/
+
 # IDE
 .vscode/
 .idea/

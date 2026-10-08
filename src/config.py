@@ -46,6 +46,26 @@ CHUNK_MIN_LAST_WORDS = 100
 # The three are compared in a later experiment (decision 15).
 CHUNK_SLIDE_TEXT_SOURCE = os.environ.get("CHUNK_SLIDE_TEXT_SOURCE", "clean_text")
 
+# --- Embeddings (embedding_service.py) ---
+
+# Which embedding model turns text into vectors: "local" (runs on this machine) or "gemini"
+# (the Gemini API; not built yet). Swapping needs a new vector collection, see vector_store.py.
+EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "local")
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-m3")
+
+# Embeddings already computed are saved here, one small file per text (named by a hash of
+# the model + the text), so running the indexing again never recomputes them.
+EMBEDDING_CACHE_DIR = os.environ.get("EMBEDDING_CACHE_DIR", "data/cache/embeddings")
+
+# How many texts go through the local model at once (a smaller number uses less GPU memory).
+# Long texts need a small batch on a 6 GB card.
+EMBEDDING_BATCH_SIZE = int(os.environ.get("EMBEDDING_BATCH_SIZE", "4"))
+
+# Texts longer than this many tokens are cut off by the local model (the END is lost).
+# A token is a piece of a word. Our embedded chunk texts (slide text + description + speech)
+# measured up to 2549 tokens, so 3072 keeps all of them. bge-m3 itself accepts up to 8192.
+EMBEDDING_MAX_TOKENS = int(os.environ.get("EMBEDDING_MAX_TOKENS", "3072"))
+
 # --- OCR cleanup defaults (ocr_clean.py) ---
 
 # Drop OCR words Tesseract is less sure about than this (0 to 1). Garbage like "oP" or "sso"
