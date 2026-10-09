@@ -328,7 +328,7 @@ def draw_overview():
          "Listen to the speech, look at the slides, and pair the two up.",
          "a lecture video", "knowledge objects (1 per slide)"),
         ("index", "B", "database", "Get ready to search",
-         "Cut the lecture into pieces (chunks) and file each one by what it is about, so it can be found by meaning.",
+         "Cut the lecture into pieces (chunks) and file each one, so it can be found by meaning and by exact words.",
          "knowledge objects", "a searchable database"),
         ("answer", "C", "answer", "Answer a question",
          "Find the closest chunks and write an answer using only the lecture, with sources.",
@@ -362,9 +362,9 @@ def draw_overview():
     # what comes next
     d.rect(24, next_y, width - 48, 56, fill="#FFFFFF", stroke=THEMES["planned"]["stroke"], radius=14, dashed=True, stroke_width=2)
     d.icon("target", 24 + 38, next_y + 28, "planned", radius=18)
-    d.text(24 + 72, next_y + 25, "Next (planned)", size=13.5, weight="bold", fill=THEMES["planned"]["dark"])
+    d.text(24 + 72, next_y + 25, "Ideas for next", size=13.5, weight="bold", fill=THEMES["planned"]["dark"])
     d.text(24 + 72, next_y + 44,
-           "Test the search with real questions, and improve it only where the test shows it falls short.", size=12.5, fill=MUTED_COLOR)
+           "Test on fresh questions, and let the answer model see the slide pictures as well as the text.", size=12.5, fill=MUTED_COLOR)
     return d
 
 
@@ -503,7 +503,7 @@ def draw_phase2():
 
     # part C
     d.card(right_x, row_y[0], card_w, card_h, "answer", "question", "Your question",
-           "Typed on the command line.", 'python -m src.ask "..."', number="C1")
+           "Typed in the web page or on the command line.", 'python -m src.ask "..."', number="C1")
     d.card(right_x, row_y[1], card_w, card_h, "answer", "numbers", "Turn it into numbers",
            "With the same model that handled the chunks.", "bge-m3", number="C2")
     d.card(right_x, row_y[2], card_w, card_h, "answer", "search", "Find the closest chunks",

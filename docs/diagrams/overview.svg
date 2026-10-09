@@ -21,8 +21,8 @@
 <g transform="translate(492.0,86) scale(1.4545454545454546)"><ellipse cx="0" cy="-7" rx="9" ry="3.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-9,-7 V7 A9,3.5 0 0 0 9,7 V-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M-9,0 A9,3.5 0 0 0 9,0" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="492.0" y="148" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="17.5" font-weight="bold" fill="#1F2A37" text-anchor="middle">Get ready to search</text>
 <text x="492.0" y="172" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">Cut the lecture into pieces (chunks)</text>
-<text x="492.0" y="190" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">and file each one by what it is about,</text>
-<text x="492.0" y="208" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">so it can be found by meaning.</text>
+<text x="492.0" y="190" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">and file each one, so it can be found</text>
+<text x="492.0" y="208" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13" font-weight="normal" fill="#4D5A6D" text-anchor="middle">by meaning and by exact words.</text>
 <rect x="366" y="218" width="252" height="1.5" rx="0" fill="#D8DEE8"/>
 <text x="370" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" fill="#176654">IN</text>
 <text x="400" y="241" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#1F2A37">knowledge objects</text>
@@ -50,6 +50,6 @@
 <rect x="24" y="342" width="936" height="56" rx="14" fill="#FFFFFF" stroke="#8F99A8" stroke-width="2" stroke-dasharray="7 5"/>
 <circle cx="62" cy="370" r="18" fill="#8F99A8"/>
 <g transform="translate(62,370) scale(0.8181818181818182)"><circle cx="0" cy="0" r="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="5.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="1.8" fill="#FFFFFF"/></g>
-<text x="96" y="367" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#586577">Next (planned)</text>
-<text x="96" y="386" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Test the search with real questions, and improve it only where the test shows it falls short.</text>
+<text x="96" y="367" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="13.5" font-weight="bold" fill="#586577">Ideas for next</text>
+<text x="96" y="386" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Test on fresh questions, and let the answer model see the slide pictures as well as the text.</text>
 </svg>

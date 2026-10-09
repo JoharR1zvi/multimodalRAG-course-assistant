@@ -303,7 +303,7 @@ In all three, each slide's end time equals the next slide's start time and no sp
 - Tesseract is weak on terminal and code text, so for code the vision model's text is the useful source.
 - Interface words are removed everywhere in `cleaned_text`, so a real use of "file" or "view" in lecture content is removed too. The raw text keeps it.
 - Slides shown for only a few seconds get no speech (stage 7).
-- Only lecture video is processed so far. PDFs and PowerPoint files are planned.
+- This is a video RAG: only lecture recordings are processed. Slide decks and PDFs of the same slides are not read (they could give cleaner slide text; not built or measured).
 - The free Gemini quota sets the speed of the vision stage.
 - Search quality is measured on two small sets, 11 and 36 questions (decisions 24 and 25). The harder set separates settings much better, but chunk size, the slide text that gets embedded and the embedding model are still untested choices, and 36 questions is still small.
 - Chunks are cut by the number of words of speech, so a cut can fall in the middle of a slide (decision 19).

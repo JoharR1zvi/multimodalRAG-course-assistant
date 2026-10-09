@@ -4,7 +4,7 @@ Last updated: 2026-10-09.
 
 ## Where things stand
 
-**Phase 2 has a working prototype (2026-10-08).** Chunking, embeddings (bge-m3 on the GPU), an embedded Qdrant database, search, and answers with citations all work end to end on three lectures: 96 chunks are stored, `python -m src.search` finds the closest chunks, and `python -m src.ask` answers from them with sources that come from stored data. 262 tests pass. Three evaluations have run (`python -m src.evaluate`, decisions 24, 25 and 27) on private question sets with known answer locations. On the first, easier set of 11 questions the first result is in the right place for 10 (hit@1 0.91, MRR 0.939). On a harder set of 36 (paraphrased, decoy, code-lecture and multi-place questions) it is for 21 (hit@1 0.58, MRR 0.711), and decoy questions are the weakest (0.44). All 7 questions the lectures do not cover were refused, and a claim-by-claim check of the 36 harder answers found no invented claim. Those numbers are for the first version of the search. After comparing the settings (decision 27), search now runs on two kinds of stored vector, one from the speech alone and one from the full text, and merges the two lists. Over three question sets (74 questions) the first result is right for 0.743, up from 0.635, and on a fresh set of 27 questions it went from 0.59 to 0.70 (MRR 0.764 to 0.815); it is slightly worse on the first, easier set. A keyword search was then added to the same merge (decision 29): over the 74 questions the first result is right for 0.838 and the right place is in the top 3 for 0.973. A reranker was built and left off, because it was not clearly better (decision 30). These are results from small sets. The overview is in the README, with diagrams, and the status of every Phase 2 step is in `phase2-plan.md`.
+**Phase 2 has a working prototype (2026-10-08).** Chunking, embeddings (bge-m3 on the GPU), an embedded Qdrant database, search, and answers with citations all work end to end on three lectures: 96 chunks are stored, `python -m src.search` finds the closest chunks, and `python -m src.ask` answers from them with sources that come from stored data. 276 tests pass. Three evaluations have run (`python -m src.evaluate`, decisions 24, 25 and 27) on private question sets with known answer locations. On the first, easier set of 11 questions the first result is in the right place for 10 (hit@1 0.91, MRR 0.939). On a harder set of 36 (paraphrased, decoy, code-lecture and multi-place questions) it is for 21 (hit@1 0.58, MRR 0.711), and decoy questions are the weakest (0.44). All 7 questions the lectures do not cover were refused, and a claim-by-claim check of the 36 harder answers found no invented claim. Those numbers are for the first version of the search. After comparing the settings (decision 27), search now runs on two kinds of stored vector, one from the speech alone and one from the full text, and merges the two lists. Over three question sets (74 questions) the first result is right for 0.743, up from 0.635, and on a fresh set of 27 questions it went from 0.59 to 0.70 (MRR 0.764 to 0.815); it is slightly worse on the first, easier set. A keyword search was then added to the same merge (decision 29): over the 74 questions the first result is right for 0.838 and the right place is in the top 3 for 0.973. A reranker was built and left off, because it was not clearly better (decision 30). These are results from small sets. The overview is in the README, with diagrams, and the status of every Phase 2 step is in `phase2-plan.md`.
 
 **Phase 1 is complete (2026-10-06).** One lecture video becomes structured, timestamped knowledge, and it has been run on three lectures of two kinds (annotated slides with a webcam overlay, and a screen recording of live coding). One command runs all eight stages:
 
@@ -30,7 +30,7 @@ Each step was small and checked against the first lecture before moving on. All 
 
 ## Not covered by Phase 1
 
-A clean slide-deck recording without annotations or a webcam has not been tried yet, and PDFs and PowerPoint files as course material are not processed. Neither blocks Phase 2.
+A clean slide-deck recording without annotations or a webcam has not been tried yet. The project works on lecture video only; PDFs and PowerPoint files of the same slides are not processed. Neither blocks Phase 2.
 
 ## Target video types
 
@@ -54,7 +54,7 @@ Details and the design are in `phase2-plan.md`.
 
 ## Later
 
-A fuller backend API and user interface (a first small web page exists, see the list above). Support for PDFs and PowerPoint files as course material (currently only lecture video is processed).
+A fuller backend API and user interface (a first small web page exists, see the list above). Ideas, not planned work: letting the answer model look at the slide pictures as well as the text, and reading a slide deck or PDF of the same slides to get cleaner slide text. The printed text would come from the file; the speech, the timing and the handwriting would still come from the video.
 
 ## Phase 2 decision made: which slide text gets embedded
 

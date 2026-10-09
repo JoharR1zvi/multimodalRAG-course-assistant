@@ -114,7 +114,7 @@ Check: embed three sentences (two on the same topic, one unrelated); the related
 - One collection per embedding model. Each point is a vector plus a payload with all chunk metadata, so results carry their own citations and can be filtered by lecture or time range.
 - Functions: `create_collection`, `upsert_chunks` (idempotent thanks to deterministic ids), `search(vector, top_k, filters)`.
 - Kept behind a small interface so a hosted Qdrant (or another backend) can be swapped in later for a deployed demo.
-- Scale note: a 13-lecture course is about 500 chunks, a few MB of vectors. A plain array would search instantly. Qdrant is used for learning, metadata filtering, and growth (more courses, PDFs, slides), not for speed.
+- Scale note: a 13-lecture course is about 500 chunks, a few MB of vectors. A plain array would search instantly. Qdrant is used for learning, metadata filtering, and growth (more lectures and courses), not for speed.
 - Indexing is added to the pipeline as stages after `knowledge`. The cache check for the DB stage is "this lecture already has points".
 
 Check: point count equals chunk count; a raw search returns payloads with timestamps.
