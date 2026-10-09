@@ -162,6 +162,14 @@ Sources:
 
 If the lectures do not cover the question, the answer says so and shows the closest passages the search found. If they cover only part of it, the answer is marked "PARTLY COVERED", gives that part with its sources, and says what is missing. Every sentence should end with a citation, and the command warns about any that does not.
 
+The same thing in a web page:
+
+```
+python -m src.api            # then open http://127.0.0.1:8000
+```
+
+You type a question, optionally pick one lecture, and get the answer with clickable citations. Each source is a card with its lecture, time range, slide titles, the slide picture and the passage it came from, and a tick box shows only the matching passages without writing an answer. The page listens on this computer only, and uses the same search and answer steps as the commands above. The first question takes longer, because it loads the search model.
+
 Reranking is off by default. To try it, set the environment variables `RERANK=true` and `RERANK_MODE=blend` for one command ([decision 30](docs/decisions.md)); the first run downloads another model of about 2 GB.
 
 To measure the search on your own set of questions (a JSON file, by default `data/eval/retrieval_eval.json`; mine stay private):
@@ -189,7 +197,7 @@ A lecture can have its own settings in an optional `data/raw/<lecture_name>/sett
 python -m pytest
 ```
 
-262 tests run in about 6 seconds, with no video, no embedding model, no database folder and no API calls.
+276 tests run in about 6 seconds, with no video, no embedding model, no database folder and no API calls.
 
 ## Repository layout
 
@@ -202,6 +210,8 @@ src/
   search.py            command: the five closest chunks for a question
   ask.py               command: a cited answer to a question
   evaluate.py          command: measure the search on a set of questions with known answers
+  api.py               command: the web page's backend (FastAPI)
+  web/index.html       the web page (one file, no build step)
   ingestion/           audio extraction
   processing/          speech, keyframes, OCR, vision, cleanup, alignment, knowledge objects, chunking
   embeddings/          turning text into vectors (with a disk cache)
@@ -217,6 +227,7 @@ docs/diagrams/         the diagrams above (SVG) and the script that draws them
 ## Limits to know about
 
 - **Search quality is measured on small sets:** 11 questions, a harder set of 36, and a third set of 27 questions used to check the tuning (decisions 24, 25 and 27). The answer places and reference answers come from independent passes that I have not each checked by hand. The harder set separates settings much better, but 36 questions is still small, and there are only 3 that need two places. Chunk size, which slide text is embedded, cutting at slide changes and merging two searches have been compared (decision 27), and so have keyword search and reranking (decisions 29 and 30); the choice of embedding model has not.
+- **Multimodal in, text out of the search:** the lecture video is read in several modalities (speech, slide pictures, diagrams and handwriting), but all of it is turned into text before it is searched, and the answer model gets text only. The slide pictures are shown next to the sources, not read by the model. The step from picture to text loses detail: one answer repeated a handwritten number that the vision model had read wrongly (decision 28). Sending the slide pictures to the answer model, or searching pictures directly, is not built.
 - Only lecture video is processed so far. PDFs and PowerPoint files are planned.
 - Whisper runs on an NVIDIA GPU as configured, and the embedding model also uses the GPU (about 2.7 GB at peak; never run both at once on a 6 GB card).
 - OCR is weak on terminal and code text, so for code the vision model's text is the useful source.

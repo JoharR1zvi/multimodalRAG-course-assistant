@@ -46,7 +46,7 @@ Next, in this order:
 2. **Run the answer step with the current search** (keyword search added) and repeat the claim-by-claim check, since the answers were last measured before keyword search (about 70 Gemini calls).
 3. **A rule for conflicts between sources**, so that an answer says when the slide and the speech give different numbers (decision 28).
 4. **The Gemini embedding provider and the comparison with bge-m3** (decision 12).
-5. **A user interface**: a small web page on top of the search and answer steps.
+5. **A user interface**: *a first version is built (2026-10-09)*, a small web page on top of the same search and answer steps (`python -m src.api`, architecture notes). It has not been tried by anyone but me.
 
 Done on the answer step (decision 26): a citation on every sentence, with a warning when one is missing (5 answers with an uncited sentence became 2 of 36), and a "partly covered" label instead of yes or no. Decision 28 added a rule that formulas are written as plain text.
 
@@ -54,7 +54,7 @@ Details and the design are in `phase2-plan.md`.
 
 ## Later
 
-A backend API and a fuller user interface (a first small web page is on the list above). Support for PDFs and PowerPoint files as course material (currently only lecture video is processed).
+A fuller backend API and user interface (a first small web page exists, see the list above). Support for PDFs and PowerPoint files as course material (currently only lecture video is processed).
 
 ## Phase 2 decision made: which slide text gets embedded
 

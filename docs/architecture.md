@@ -219,6 +219,21 @@ A language model can invent a timestamp as easily as a fact, so the model is nev
 
 Only text goes to Gemini, so the slide pictures are not sent, and the passages leave the machine. The evaluations (below, and [decision 24](decisions.md) and [decision 25](decisions.md)) ran the answer step on 54 questions: all 7 outside the course were refused, and the answers cite a chunk from the right place whenever the right chunk is among the five excerpts. A claim-by-claim check of the 36 harder answers found 116 of 123 claims supported by the cited excerpt, 5 supported by an excerpt that was not cited (answers that open with an uncited sentence), 2 overstated and none invented. Decision 26 describes the later change to a citation on every sentence and the three coverage values: the answers with an uncited sentence went from 5 to 2 of 36. Decision 28 describes a second check of 70 answers on the tuned search (218 of 227 claims supported by the cited excerpt), and a rule that formulas are written as plain text, because a LaTeX backslash-t was read as a tab. Reasoning in [decision 22](decisions.md).
 
+## The web page (`src/api.py`, `src/web/index.html`)
+
+```
+python -m src.api            # then open http://127.0.0.1:8000
+```
+
+A small FastAPI server and one HTML page with no build step. The page sends the question to `POST /api/ask` and draws the reply; the server runs the same `retrieve` and `answer_question` as the commands, and reuses the banner text of `src/ask.py`, so the page and the command line cannot disagree. A reply holds the answer text, its coverage and warnings, and one entry per cited source (lecture, times, slide titles, the match score, the start of the passage and the address of the slide picture). If the lectures cannot answer, it also holds the three closest passages. A tick box turns the answer off, which shows only the passages the search found, and a drop-down limits the search to one lecture. The other addresses are `GET /api/lectures` (the lectures that have chunks), `GET /api/info` (the search settings, shown in the footer) and `GET /slides/<lecture>/<picture>`.
+
+Some rules I kept:
+- It listens on `127.0.0.1` only, so only this computer can reach it.
+- The text of an answer comes from a model and from the lectures, so the page only ever adds it as text, never as HTML, and a test checks that the page does not use `innerHTML`. Each `[n]` in the text becomes a button that scrolls to source `n`.
+- A picture is served only from `data/processed/<lecture>/keyframes/`, and only for names made of letters, digits, `_`, `-` and `.` that end in `.jpg`, so a request cannot reach any other file. A lecture name sent with a question must be one of the lectures that exist.
+- The database can be open in one program at a time, so a search holds a lock; the call to Gemini happens outside it. If a command in a terminal has the database open, the page says so instead of failing silently.
+- Search-only mode, an empty question, an unknown lecture and a failing Gemini call each have their own message. 14 tests cover the server with a fake search and a fake answer step; I also used the page in a browser.
+
 ## Evaluating (`src/evaluate.py`)
 
 ```

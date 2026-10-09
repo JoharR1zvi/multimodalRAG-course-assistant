@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course assistant</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --text: #1b2330;
+    --muted: #5d6879;
+    --border: #d9dee6;
+    --accent: #2457c5;
+    --accent-text: #ffffff;
+    --accent-soft: #e6edfb;
+    --partial-bg: #fff4d6;
+    --partial-text: #6b4b00;
+    --none-bg: #fde8e8;
+    --none-text: #8a1c1c;
+    --warn-bg: #f1f3f6;
+    --flash: #fff1b8;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12161c;
+      --surface: #1b212b;
+      --text: #e8ecf2;
+      --muted: #9aa5b6;
+      --border: #2d3644;
+      --accent: #7aa2f7;
+      --accent-text: #0e1420;
+      --accent-soft: #24304a;
+      --partial-bg: #3a2f10;
+      --partial-text: #f3d37a;
+      --none-bg: #3b1d1f;
+      --none-text: #f4a3a3;
+      --warn-bg: #232a35;
+      --flash: #4a4012;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 28px 16px 40px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 22px; }
+
+  form { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+  textarea {
+    width: 100%; min-height: 84px; resize: vertical;
+    font: inherit; color: inherit; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+  }
+  textarea:focus, select:focus, button:focus-visible, a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; margin-top: 12px; }
+  .field { display: flex; align-items: center; gap: 8px; }
+  .field label { margin: 0; font-weight: 500; }
+  select { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 0.92rem; }
+  .check input { width: 16px; height: 16px; }
+  .spacer { flex: 1; }
+  button.primary {
+    font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--accent); color: var(--accent-text);
+    border: 0; border-radius: 8px; padding: 9px 20px;
+  }
+  button.primary:disabled { opacity: 0.55; cursor: progress; }
+  .hint { color: var(--muted); font-size: 0.85rem; margin: 8px 0 0; }
+
+  #status { min-height: 1.6em; margin: 16px 2px 0; color: var(--muted); }
+  #status.error { color: var(--none-text); }
+
+  .banner { border-radius: 8px; padding: 10px 14px; font-weight: 600; margin: 16px 0 0; }
+  .banner.partial { background: var(--partial-bg); color: var(--partial-text); }
+  .banner.none { background: var(--none-bg); color: var(--none-text); }
+
+  .answer { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 18px; margin-top: 16px; }
+  .answer p { margin: 12px 0; }
+  button.cite {
+    font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+    color: var(--accent); background: var(--accent-soft);
+    border: 0; border-radius: 6px; padding: 0 6px; margin: 0 1px; vertical-align: baseline;
+  }
+  button.cite:hover { text-decoration: underline; }
+
+  .notice { background: var(--warn-bg); border-radius: 8px; padding: 8px 12px; font-size: 0.88rem; color: var(--muted); margin-top: 12px; }
+
+  h2 { font-size: 1.05rem; margin: 26px 2px 10px; }
+  .source {
+    display: flex; gap: 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px; margin-bottom: 10px;
+  }
+  .source.flash { animation: flash 1.4s ease-out; }
+  @keyframes flash { 0% { background: var(--flash); } 100% { background: var(--surface); } }
+  .source .num {
+    flex: none; width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-weight: 700; font-size: 0.85rem; display: grid; place-items: center;
+  }
+  .source .body { min-width: 0; flex: 1; }
+  .meta { font-weight: 600; }
+  .meta .time { color: var(--accent); }
+  .titles { color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
+  .score { color: var(--muted); font-size: 0.82rem; margin-top: 2px; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; color: var(--accent); font-size: 0.9rem; }
+  .excerpt { margin: 8px 0 0; color: var(--muted); font-size: 0.9rem; white-space: pre-wrap; }
+  .thumb { flex: none; width: 150px; align-self: flex-start; }
+  .thumb img { width: 100%; height: auto; border-radius: 6px; border: 1px solid var(--border); display: block; background: var(--bg); }
+  .thumb span { display: block; font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+  @media (max-width: 560px) {
+    .source { flex-direction: column; }
+    .thumb { width: 100%; max-width: 260px; }
+  }
+
+  footer { color: var(--muted); font-size: 0.82rem; margin-top: 30px; border-top: 1px solid var(--border); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Course assistant</h1>
+  <p class="subtitle">Ask a question about the lectures. The answer uses only the course material and shows where it comes from.</p>
+
+  <form id="form">
+    <label for="question">Your question</label>
+    <textarea id="question" name="question" maxlength="1000" placeholder="Type a question in your own words" required></textarea>
+    <div class="row">
+      <div class="field">
+        <label for="lecture">Search in</label>
+        <select id="lecture"><option value="">All lectures</option></select>
+      </div>
+      <label class="check"><input type="checkbox" id="searchOnly"> Only show the matching passages (write no answer)</label>
+      <span class="spacer"></span>
+      <button class="primary" id="go" type="submit">Ask</button>
+    </div>
+    <p class="hint">Press Ctrl+Enter to ask. The first question is slower, because it loads the search model.</p>
+  </form>
+
+  <div id="status" role="status" aria-live="polite"></div>
+  <div id="result"></div>
+
+  <footer id="footer">
+    The passages the search finds are sent to Gemini to write the answer. The slide pictures stay on this computer.
+  </footer>
+</div>
+
+<script>
+  const form = document.getElementById("form");
+  const questionBox = document.getElementById("question");
+  const lectureSelect = document.getElementById("lecture");
+  const searchOnly = document.getElementById("searchOnly");
+  const goButton = document.getElementById("go");
+  const statusLine = document.getElementById("status");
+  const resultBox = document.getElementById("result");
+  const footer = document.getElementById("footer");
+
+  // A citation in the answer looks like [2] or [2][3] or [2, 3]
+  const CITATION = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
+
+  function setStatus(text, isError) {
+    statusLine.textContent = text;
+    statusLine.className = isError ? "error" : "";
+  }
+
+  function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  // Fill a paragraph with the answer text. Plain text only (never HTML); each citation
+  // becomes a button that jumps to its source.
+  function fillWithCitations(paragraph, line) {
+    let last = 0;
+    for (const match of line.matchAll(CITATION)) {
+      paragraph.append(document.createTextNode(line.slice(last, match.index)));
+      for (const part of match[1].split(",")) {
+        const number = part.trim();
+        const button = element("button", "cite", number);
+        button.type = "button";
+        button.title = "Go to source " + number;
+        button.addEventListener("click", () => jumpToSource(number));
+        paragraph.append(button);
+      }
+      last = match.index + match[0].length;
+    }
+    paragraph.append(document.createTextNode(line.slice(last)));
+  }
+
+  function jumpToSource(number) {
+    const card = document.getElementById("source-" + number);
+    if (!card) return;
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    card.classList.remove("flash");
+    void card.offsetWidth;            // restart the animation
+    card.classList.add("flash");
+  }
+
+  function sourceCard(source, idPrefix) {
+    const card = element("div", "source");
+    card.id = idPrefix + source.number;
+
+    card.append(element("div", "num", String(source.number)));
+
+    const body = element("div", "body");
+    const meta = element("div", "meta");
+    meta.append(document.createTextNode(source.lecture_id + "  "));
+    meta.append(element("span", "time", source.start_label + " – " + source.end_label));
+    body.append(meta);
+
+    if (source.titles.length > 0) {
+      body.append(element("div", "titles", source.titles.join("  |  ")));
+    }
+    body.append(element("div", "score", "match score " + source.score.toFixed(2)));
+
+    const details = element("details");
+    details.append(element("summary", "", "Show the passage"));
+    details.append(element("p", "excerpt", source.excerpt));
+    body.append(details);
+    card.append(body);
+
+    if (source.image_url) {
+      const thumb = element("div", "thumb");
+      const link = element("a");
+      link.href = source.image_url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      const image = element("img");
+      image.src = source.image_url;
+      image.loading = "lazy";
+      image.alt = "Slide shown at the start of this passage";
+      link.append(image);
+      thumb.append(link);
+      thumb.append(element("span", "", "Slide at " + source.start_label));
+      card.append(thumb);
+    }
+    return card;
+  }
+
+  function showSources(title, sources, idPrefix) {
+    if (sources.length === 0) return;
+    resultBox.append(element("h2", "", title));
+    for (const source of sources) {
+      resultBox.append(sourceCard(source, idPrefix));
+    }
+  }
+
+  function render(data) {
+    resultBox.replaceChildren();
+
+    if (data.mode === "search") {
+      if (data.closest.length === 0) {
+        resultBox.append(element("div", "banner none", "Nothing was found."));
+      }
+      showSources("Matching passages, best first", data.closest, "source-");
+      return;
+    }
+
+    if (data.banner) {
+      resultBox.append(element("div", "banner " + data.coverage, data.banner));
+    }
+
+    const answer = element("div", "answer");
+    for (const line of data.text.split("\n")) {
+      if (line.trim() === "") continue;
+      const paragraph = element("p");
+      fillWithCitations(paragraph, line);
+      answer.append(paragraph);
+    }
+    resultBox.append(answer);
+
+    for (const warning of data.warnings) {
+      resultBox.append(element("div", "notice", "Note: " + warning));
+    }
+
+    showSources("Sources", data.sources, "source-");
+    // Passages the search found when it could not answer: ids differ so they never clash with sources
+    showSources("Closest passages the search found", data.closest, "closest-");
+  }
+
+  async function ask() {
+    const question = questionBox.value.trim();
+    if (question === "") {
+      setStatus("Type a question first.", true);
+      return;
+    }
+
+    goButton.disabled = true;
+    resultBox.replaceChildren();
+    setStatus(searchOnly.checked ? "Searching..." : "Searching and writing the answer...", false);
+
+    try {
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: question,
+          lecture: lectureSelect.value || null,
+          answer: !searchOnly.checked,
+        }),
+      });
+
+      if (!response.ok) {
+        let message = "Something went wrong (" + response.status + ").";
+        try {
+          const body = await response.json();
+          if (typeof body.detail === "string") message = body.detail;
+        } catch (ignored) { /* keep the generic message */ }
+        setStatus(message, true);
+        return;
+      }
+
+      render(await response.json());
+      setStatus("", false);
+    } catch (error) {
+      setStatus("Could not reach the server. Is it still running?", true);
+    } finally {
+      goButton.disabled = false;
+    }
+  }
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    ask();
+  });
+
+  questionBox.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      ask();
+    }
+  });
+
+  async function loadLectures() {
+    try {
+      const body = await (await fetch("/api/lectures")).json();
+      for (const name of body.lectures) {
+        const option = element("option", "", name);
+        option.value = name;
+        lectureSelect.append(option);
+      }
+    } catch (ignored) { /* the list stays "All lectures" */ }
+  }
+
+  async function loadInfo() {
+    try {
+      const info = await (await fetch("/api/info")).json();
+      const search = info.signals.join(" + ") + (info.rerank ? " + reranking" : "");
+      footer.append(document.createElement("br"));
+      footer.append(document.createTextNode("Search: " + search + ". Embeddings: " + info.embedding_model + ". Answers: " + info.answer_model + "."));
+    } catch (ignored) { /* the footer just stays short */ }
+  }
+
+  loadLectures();
+  loadInfo();
+  questionBox.focus();
+</script>
+</body>
+</html>
