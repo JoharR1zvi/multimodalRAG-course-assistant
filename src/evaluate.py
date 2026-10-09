@@ -28,6 +28,7 @@ from pathlib import Path
 from src import config
 from src.database.vector_store import open_client
 from src.generation.llm_service import answer_question
+from src.retrieval.keyword_search import KEYWORD_SIGNALS
 from src.retrieval.retriever import format_timestamp, retrieve
 
 # The evaluation questions. Private (course material), so the folder is git-ignored.
@@ -341,14 +342,36 @@ def load_eval_set(path: str) -> list:
     return items
 
 
+def describe_retrieval(signals: list) -> str:
+    # A short name for the kind of search the signals make: "dense", "dense fusion", "keyword"
+    # or "dense + keyword fusion"
+    keyword_count = len([s for s in signals if s in KEYWORD_SIGNALS])
+    dense_count = len(signals) - keyword_count
+
+    if keyword_count == 0 and dense_count == 1:
+        return "dense"
+    if keyword_count == 0:
+        return "dense fusion"
+    if dense_count == 0 and keyword_count == 1:
+        return "keyword"
+    if dense_count == 0:
+        return "keyword fusion"
+    return "dense + keyword fusion"
+
+
 def settings_snapshot(top_k: int) -> dict:
     # The settings that decide what the search can find, saved with every result so two runs
     # can be compared later. They are read from the config; if you changed a setting without
     # rebuilding the chunks (python -m src.pipeline --all --force chunk), they do not describe
     # what is stored in the database.
     return {
-        "retrieval_method": "dense" if len(config.RETRIEVAL_SIGNALS) == 1 else "dense fusion",
+        "retrieval_method": describe_retrieval(config.RETRIEVAL_SIGNALS),
         "retrieval_signals": config.RETRIEVAL_SIGNALS,
+        "rerank": config.RERANK_ENABLED,
+        "rerank_model": config.RERANK_MODEL,
+        "rerank_mode": config.RERANK_MODE,
+        "rerank_candidates": config.RERANK_CANDIDATES,
+        "rerank_max_tokens": config.RERANK_MAX_TOKENS,
         "top_k": top_k,
         "chunk_target_words": config.CHUNK_TARGET_WORDS,
         "chunk_max_words": config.CHUNK_MAX_WORDS,
@@ -717,7 +740,10 @@ def main() -> None:
         print("Nothing found for any question. Are the lectures indexed? Run: python -m src.pipeline --all")
         return
 
-    print(f"\nEvaluation: dense search, top {args.top}, {len(items)} questions\n")
+    rerank_note = ""
+    if config.RERANK_ENABLED:
+        rerank_note = f" + rerank ({config.RERANK_MODE}) of {config.RERANK_CANDIDATES} candidates"
+    print(f"\nEvaluation: {describe_retrieval(config.RETRIEVAL_SIGNALS)} search ({', '.join(config.RETRIEVAL_SIGNALS)}){rerank_note}, top {args.top}, {len(items)} questions\n")
 
     print_answerable_table(answerable_rows, args.top)
 

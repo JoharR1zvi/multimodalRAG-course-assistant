@@ -159,6 +159,40 @@ def upsert_chunks(client: QdrantClient, collection_name: str, chunks: list, vect
     return len(points)
 
 
+def load_all_chunks(client: QdrantClient, collection_name: str, lecture_id: str | None = None) -> list:
+    # Every stored chunk (or those of one lecture), read from the payloads, in time order.
+    # The keyword search builds its index from these, so it searches exactly what is stored.
+    if not client.collection_exists(collection_name):
+        return []
+
+    scroll_filter = None
+    if lecture_id is not None:
+        scroll_filter = make_lecture_filter(lecture_id)
+
+    chunks = []
+    next_offset = None
+
+    while True:
+        points, next_offset = client.scroll(
+            collection_name=collection_name,
+            scroll_filter=scroll_filter,
+            limit=256,
+            offset=next_offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+
+        for point in points:
+            chunks.append(Chunk(**point.payload))
+
+        if next_offset is None:
+            break
+
+    chunks.sort(key=lambda chunk: (chunk.lecture_id, chunk.start_timestamp))
+
+    return chunks
+
+
 def search(
     client: QdrantClient,
     collection_name: str,

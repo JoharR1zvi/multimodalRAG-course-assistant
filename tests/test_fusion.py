@@ -40,6 +40,22 @@ def test_a_chunk_that_is_in_both_lists_beats_chunks_that_are_in_one():
     assert ids(merged) == ["y", "x", "w", "z"]
 
 
+def test_a_keyword_score_is_never_shown_as_a_similarity():
+    # BM25 scores are not between 0 and 1. The shown score comes from the dense lists only;
+    # a chunk found only by the keyword search shows 0.0.
+    dense_list = [make_result("x", score=0.8)]
+    keyword_list = [
+        SearchResult(chunk=make_result("x").chunk, score=14.2, method="bm25"),
+        SearchResult(chunk=make_result("y").chunk, score=9.0, method="bm25"),
+    ]
+
+    merged = reciprocal_rank_fusion([dense_list, keyword_list], top_k=10)
+
+    assert ids(merged) == ["x", "y"]
+    assert merged[0].score == 0.8
+    assert merged[1].score == 0.0
+
+
 def test_only_the_ranks_count_not_the_similarity_numbers():
     # The first list has very high scores and the second very low ones: it makes no difference
     list_one = [make_result("a", score=0.99), make_result("b", score=0.98)]

@@ -18,7 +18,7 @@ from src.schemas.chunk import Chunk, SearchResult
 from src.search import PREVIEW_CHARACTERS, format_result, unique_titles
 
 
-def make_chunk(chunk_id, lecture_id="lecture_a", start=0.0, end=100.0, titles=None, text="some speech"):
+def make_chunk(chunk_id, lecture_id="lecture_a", start=0.0, end=100.0, titles=None, text="some speech", embed_text="embedded"):
     if titles is None:
         titles = ["A title"]
     return Chunk(
@@ -35,7 +35,7 @@ def make_chunk(chunk_id, lecture_id="lecture_a", start=0.0, end=100.0, titles=No
         cleaned_text="",
         clean_text="",
         slide_description="",
-        embed_text="embedded",
+        embed_text=embed_text,
     )
 
 
@@ -103,6 +103,56 @@ def test_two_signals_are_searched_separately_and_merged_by_rank(monkeypatch):
 
     assert [result.chunk.chunk_id for result in fused] == ["B", "A", "C"]
     assert fused[0].method == "fusion"
+    client.close()
+
+
+def test_a_keyword_list_is_merged_with_the_two_vector_lists(monkeypatch):
+    # Same three chunks as above (speech order A, B, C; full-text order B, C, A), plus a keyword
+    # search that finds only C (its text has the word "zebra"). C is in all three lists, so it wins.
+    monkeypatch.setattr(retriever, "get_model_slug", lambda: "fake-model")
+    monkeypatch.setattr(retriever, "embed_query", lambda question: np.array([1.0, 0.0, 0.0]))
+
+    client = open_client(":memory:")
+    collection = get_collection_name("fake-model")
+    create_collection_if_missing(client, collection, 3, vector_names=["speech", "full"])
+
+    chunks = [
+        make_chunk("A", start=0.0),
+        make_chunk("B", start=100.0),
+        make_chunk("C", start=200.0, embed_text="a zebra on the slide"),
+    ]
+    vectors = {
+        "speech": [[1.0, 0.0, 0.0], [0.8, 0.6, 0.0], [0.6, 0.8, 0.0]],
+        "full": [[0.6, 0.8, 0.0], [1.0, 0.0, 0.0], [0.8, 0.6, 0.0]],
+    }
+    upsert_chunks(client, collection, chunks, vectors)
+
+    fused = retrieve("zebra", top_k=3, client=client, signals=["speech", "full", "bm25"])
+
+    assert [result.chunk.chunk_id for result in fused] == ["C", "B", "A"]
+    assert fused[0].method == "fusion"
+    client.close()
+
+
+def test_a_keyword_signal_alone_does_not_need_the_embedding_model(monkeypatch):
+    def must_not_be_called(question):
+        raise AssertionError("the question must not be embedded for a keyword-only search")
+
+    monkeypatch.setattr(retriever, "get_model_slug", lambda: "fake-model")
+    monkeypatch.setattr(retriever, "embed_query", must_not_be_called)
+
+    client = open_client(":memory:")
+    collection = get_collection_name("fake-model")
+    create_collection_if_missing(client, collection, 3)
+    # BM25 needs a few chunks without the word, as a real corpus has (a word in half of all chunks counts for nothing)
+    chunks = [make_chunk(f"F{i}", start=float(i), embed_text=f"nothing special {i}") for i in range(4)]
+    chunks.append(make_chunk("B", start=100.0, embed_text="a zebra on the slide"))
+    upsert_chunks(client, collection, chunks, [[1.0, 0.0, 0.0]] * 5)
+
+    results = retrieve("zebra", top_k=5, client=client, signals=["bm25"])
+
+    assert [result.chunk.chunk_id for result in results] == ["B"]
+    assert results[0].method == "bm25"
     client.close()
 
 

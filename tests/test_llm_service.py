@@ -217,6 +217,11 @@ def test_no_search_results_give_coverage_none(monkeypatch):
     assert final.coverage == "none"
 
 
+def test_the_instructions_forbid_latex_because_a_backslash_t_turns_into_a_tab():
+    assert "no LaTeX" in SYSTEM_INSTRUCTIONS
+    assert "no backslashes" in SYSTEM_INSTRUCTIONS
+
+
 def test_the_banner_above_an_answer_depends_on_the_coverage():
     assert coverage_banner("full") == ""
     assert coverage_banner("none") == "NOT FOUND IN THE COURSE MATERIAL"

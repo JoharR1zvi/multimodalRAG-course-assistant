@@ -16,3 +16,7 @@ os.environ.setdefault("GEMINI_API_KEY", "fake-key-for-tests")
 # result whatever RETRIEVAL_SIGNALS the person running them has set. (Plain assignment, not
 # setdefault, on purpose: a value left over in the shell must not change the tests.)
 os.environ["RETRIEVAL_SIGNALS"] = "full"
+
+# Reranking loads a 2 GB model, so the tests keep it off, whatever the shell says. The tests of the
+# reranker pass their own fake model.
+os.environ["RERANK"] = "false"

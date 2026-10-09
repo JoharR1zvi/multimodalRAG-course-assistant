@@ -632,3 +632,10 @@ def test_a_smaller_top_k_turns_a_late_hit_into_a_miss(database):
 
     # The hit is at rank 3, outside the top 2
     assert answerable_rows[0]["rank"] is None
+
+
+def test_the_kind_of_search_is_named_from_the_signals():
+    assert evaluate.describe_retrieval(["full"]) == "dense"
+    assert evaluate.describe_retrieval(["speech", "full"]) == "dense fusion"
+    assert evaluate.describe_retrieval(["bm25"]) == "keyword"
+    assert evaluate.describe_retrieval(["speech", "full", "bm25"]) == "dense + keyword fusion"

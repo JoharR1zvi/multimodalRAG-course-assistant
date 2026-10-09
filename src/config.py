@@ -67,13 +67,16 @@ CHUNK_INCLUDE_DESCRIPTION = os.environ.get("CHUNK_INCLUDE_DESCRIPTION", "true").
 # Which embedded texts the search uses, as a comma-separated list in the environment:
 #   "full"   = the chunk's embed_text (slide text, description and speech, as set above)
 #   "speech" = the speech of the chunk alone
-# One signal is the plain search. With several (for example "speech,full") every signal is
+#   "bm25"   = keyword search over the full chunk text (nothing stored; "bm25_speech" reads the speech only)
+# One signal is the plain search. With several (for example "speech,full,bm25") every signal is
 # searched on its own and the lists are merged with reciprocal rank fusion (decision 27).
-# Changing this needs a new database (python -m src.pipeline --all --force chunk, with another
-# QDRANT_PATH), because the vectors stored are different.
-# The default merges both: it scored best over the three question sets (decision 27).
+# Adding or removing "speech" or "full" needs a new database (python -m src.pipeline --all
+# --force chunk, with another QDRANT_PATH), because the vectors stored are different.
+# "bm25" can be added or removed at any time: it reads the chunks that are already stored.
+# The default merges both vectors and the keyword search: it beat the two vectors alone on all
+# three question sets (decision 28).
 RETRIEVAL_SIGNALS = []
-for signal_name in os.environ.get("RETRIEVAL_SIGNALS", "speech,full").split(","):
+for signal_name in os.environ.get("RETRIEVAL_SIGNALS", "speech,full,bm25").split(","):
     if signal_name.strip() != "":
         RETRIEVAL_SIGNALS.append(signal_name.strip())
 
@@ -82,6 +85,30 @@ FUSION_CANDIDATES = int(os.environ.get("FUSION_CANDIDATES", "20"))
 
 # Reciprocal rank fusion: a result at rank r in a list adds 1 / (FUSION_RRF_K + r) to its score
 FUSION_RRF_K = 60
+
+# --- Reranking (reranker.py) ---
+
+# A second, slower pass: a cross-encoder reads the question together with each of the best
+# candidates and sorts them again. Off by default until it is measured to help (RERANK=true to try).
+RERANK_ENABLED = os.environ.get("RERANK", "false").strip().lower() == "true"
+RERANK_MODEL = os.environ.get("RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+
+# How many candidates from the first search the reranker reads for each question
+RERANK_CANDIDATES = int(os.environ.get("RERANK_CANDIDATES", "20"))
+
+# What the reranker's opinion does to the order:
+#   "replace" = the final order is the reranker's order
+#   "blend"   = the final order merges the first search's order and the reranker's order (reciprocal rank fusion)
+RERANK_MODE = os.environ.get("RERANK_MODE", "replace").strip().lower()
+if RERANK_MODE not in ("replace", "blend"):
+    raise ValueError(f"RERANK_MODE must be 'replace' or 'blend', not {RERANK_MODE!r}")
+
+# The longest text (in tokens) the reranker reads: a question plus a chunk. Same limit as the
+# embedding model, so the end of a long chunk is not silently cut (the longest chunk is about 2,600 tokens).
+RERANK_MAX_TOKENS = int(os.environ.get("RERANK_MAX_TOKENS", "3072"))
+
+# How many question + chunk pairs are processed together (small, because the GPU has 6 GB)
+RERANK_BATCH_SIZE = int(os.environ.get("RERANK_BATCH_SIZE", "4"))
 
 # --- Embeddings (embedding_service.py) ---
 

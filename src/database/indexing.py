@@ -25,6 +25,7 @@ from src.database.vector_store import (
     upsert_chunks,
 )
 from src.embeddings.embedding_service import embed_texts, get_model_slug
+from src.retrieval.keyword_search import dense_signals_only
 from src.schemas.chunk import Chunk
 
 # The signals a search can use, and which text of a chunk each one embeds
@@ -55,8 +56,11 @@ def index_lecture(chunks_path: Path, *, force: bool = False, client=None, signal
     if signals is None:
         signals = RETRIEVAL_SIGNALS
 
+    # Keyword signals (bm25) store nothing: only the signals that are vectors are embedded
+    signals = dense_signals_only(signals)
+
     if len(signals) == 0:
-        raise ValueError("RETRIEVAL_SIGNALS is empty")
+        raise ValueError("RETRIEVAL_SIGNALS has no vector signal (speech or full) to index")
 
     with open(chunks_path, encoding="utf-8") as f:
         chunk_data = json.load(f)

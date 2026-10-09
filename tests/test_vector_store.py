@@ -17,6 +17,7 @@ from src.database.vector_store import (
     delete_lecture,
     get_collection_name,
     get_vector_names,
+    load_all_chunks,
     make_point_id,
     open_client,
     search,
@@ -280,6 +281,41 @@ def test_each_signal_embeds_its_own_text_and_gets_its_own_named_vector(tmp_path,
     assert seen_texts[1] == ["embed text of lecture_a_0", "embed text of lecture_a_100"]
     assert get_vector_names(database, collection) == ["full", "speech"]
     assert count_points(database, collection, "lecture_a") == 2
+
+
+def test_a_keyword_signal_stores_nothing_and_is_ignored_when_indexing(tmp_path, monkeypatch):
+    seen_texts = []
+
+    def recording_embedder(texts):
+        seen_texts.append(list(texts))
+        return np.array([[1.0, float(i), 0.0] for i in range(len(texts))], dtype=np.float32)
+
+    monkeypatch.setattr(indexing, "embed_texts", recording_embedder)
+    monkeypatch.setattr(indexing, "get_model_slug", lambda: "fake-model")
+    chunks_path = tmp_path / "chunks.json"
+    write_chunks_file(chunks_path, [make_chunk("lecture_a_0")])
+    database = open_client(":memory:")
+
+    index_lecture(chunks_path, client=database, signals=["speech", "full", "bm25"])
+
+    assert len(seen_texts) == 2            # speech and full were embedded, bm25 was not
+    assert get_vector_names(database, get_collection_name("fake-model")) == ["full", "speech"]
+
+
+def test_all_stored_chunks_can_be_read_back_in_time_order(client):
+    chunks = [
+        make_chunk("lecture_b_0", lecture_id="lecture_b", start=0.0),
+        make_chunk("lecture_a_100", lecture_id="lecture_a", start=100.0),
+        make_chunk("lecture_a_0", lecture_id="lecture_a", start=0.0),
+    ]
+    upsert_chunks(client, COLLECTION, chunks, [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+
+    everything = load_all_chunks(client, COLLECTION)
+    only_b = load_all_chunks(client, COLLECTION, lecture_id="lecture_b")
+
+    assert [chunk.chunk_id for chunk in everything] == ["lecture_a_0", "lecture_a_100", "lecture_b_0"]
+    assert [chunk.chunk_id for chunk in only_b] == ["lecture_b_0"]
+    assert load_all_chunks(client, "no_such_collection") == []
 
 
 def test_the_signal_texts_are_the_speech_or_the_embed_text():

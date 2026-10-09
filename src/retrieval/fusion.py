@@ -18,11 +18,13 @@ DEFAULT_K = 60
 def reciprocal_rank_fusion(result_lists: list, top_k: int, k: int = DEFAULT_K) -> list:
     # result_lists: a list of lists of SearchResult, each list best first
     # Returns the best top_k merged results, best first. Each one keeps the chunk, and its score
-    # is the highest similarity the chunk had in any list (so it still reads like a similarity);
-    # the method says "fusion". Ties keep the order in which the chunks were first seen.
+    # is the highest similarity the chunk had in any DENSE list (so it still reads like a
+    # similarity); the method says "fusion". Keyword (BM25) scores are not similarities, so they
+    # never become the shown score; a chunk found only by the keyword search shows 0.0.
+    # Ties keep the order in which the chunks were first seen.
 
     fused_scores = {}        # chunk id -> sum of 1 / (k + rank)
-    best_similarity = {}     # chunk id -> highest similarity score in any list
+    best_similarity = {}     # chunk id -> highest dense similarity in any list (None = none yet)
     chunk_of = {}            # chunk id -> the Chunk
     first_seen = {}          # chunk id -> order of first appearance (for ties)
 
@@ -34,14 +36,15 @@ def reciprocal_rank_fusion(result_lists: list, top_k: int, k: int = DEFAULT_K) -
 
             if chunk_id not in fused_scores:
                 fused_scores[chunk_id] = 0.0
-                best_similarity[chunk_id] = result.score
+                best_similarity[chunk_id] = None
                 chunk_of[chunk_id] = result.chunk
                 first_seen[chunk_id] = len(first_seen)
 
             fused_scores[chunk_id] = fused_scores[chunk_id] + 1.0 / (k + rank)
 
-            if result.score > best_similarity[chunk_id]:
-                best_similarity[chunk_id] = result.score
+            if result.method != "bm25":
+                if best_similarity[chunk_id] is None or result.score > best_similarity[chunk_id]:
+                    best_similarity[chunk_id] = result.score
 
     # Highest fused score first; the earlier-seen chunk wins a tie
     chunk_ids = list(fused_scores.keys())
@@ -49,6 +52,9 @@ def reciprocal_rank_fusion(result_lists: list, top_k: int, k: int = DEFAULT_K) -
 
     merged = []
     for chunk_id in chunk_ids[:top_k]:
-        merged.append(SearchResult(chunk=chunk_of[chunk_id], score=best_similarity[chunk_id], method="fusion"))
+        shown_score = best_similarity[chunk_id]
+        if shown_score is None:
+            shown_score = 0.0
+        merged.append(SearchResult(chunk=chunk_of[chunk_id], score=shown_score, method="fusion"))
 
     return merged
