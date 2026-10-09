@@ -550,4 +550,91 @@ hit@3 over all 74: 0.878 to 0.919. hit@5: 0.946 to 0.973. On the new set, strict
 
 **A failure of my own tooling.** Two evaluations that finished in the same second saved to the same file name, and the file came out as a mix of both (a second file was overwritten). I noticed because one file would not parse, found the cause, re-ran the three lost evaluations one after the other, and changed the evaluation so that it never overwrites a results file: a second run in the same second gets a counter in its name. A new test fails if I put the old behaviour back.
 
-**Next.** Keyword search (BM25) merged with the same fusion code, reranking for the decoy questions, running the answer step on all three sets with the new search, a repeat of the claim-by-claim check, and the comparison with the Gemini embedding model (decision 12).
+**Next.** Keyword search (BM25) merged with the same fusion code, reranking for the decoy questions, running the answer step on all three sets with the new search, a repeat of the claim-by-claim check, and the comparison with the Gemini embedding model (decision 12). The answer run and the repeated check are in decision 28, keyword search is in decision 29, and reranking is in decision 30.
+
+---
+
+## 28. The answer step on the tuned search: a second claim-by-claim check, and a fix for garbled formulas
+
+**Problem.** The answers had last been measured on the first version of the search. Decision 27 changed the search, so I ran the answer step again, on the harder set (36 questions with an answer, 4 without) and on the third set (27 with an answer, 3 without), and repeated the claim-by-claim check of decision 25 on all 70 answers. This is the search of decision 27, before keyword search (decision 29).
+
+**Results: the answer run** (70 answers, one run, temperature 0, no failed call):
+- *Harder set.* 35 of 36 answers cite the right place, against 33 before. Three of the four questions the lectures do not cover are refused. The fourth is labelled "partly covered", but its text says the excerpts do not state the answer and makes no claim. One of the 36 is marked as not covered although the lecture half answers it, and its text is right: it says the lecture only names the method. Fully answered questions marked "partly covered": 1 of 34, against 3 before. Answers with a sentence that has no citation: 3, against 2.
+- *Third set.* All 3 questions the lectures do not cover are refused, none of the 27 others is refused, and 26 of 27 cite the right place. The one that does not is a search miss: the right chunk is not in the top 10. The one partly covered question is marked as such. Two answers have an uncited sentence.
+
+**Results: the claim check.** As in decision 25, separate readers got only the question, the answer and the five excerpts the answer step had read, and judged every claim. There were 227 claims in 70 answers. 218 are supported by a cited excerpt. 5 are supported, but by an excerpt that was not cited: these are the answers that open with an uncited yes or no sentence, and they are exactly the five answers my own sentence check from decision 26 flags. 1 is contradicted, 1 is unsupported and 2 are overstated. By answer: 61 faithful, 5 with a citation problem, 4 unfaithful. All 11 statements of the form "the material does not say ..." are true. The four unfaithful answers:
+- One answer repeats a number from the vision model's reading of a handwritten slide. That slide appears in the excerpts twice, and the two readings disagree on one number, while the speech of a neighbouring chunk gives the other. The answer picked one reading and did not say they disagree. After keyword search (decision 29) the chunk with the speech is in the top five, and the answer still picks the slide's reading, so this is a conflict between two sources and not a search miss.
+- One answer relies on the meaning of a term that the excerpts use but never define.
+- One answer joins two issues that the slide lists separately.
+- One answer says what a model did after a change, when the excerpt only says what it did not do. Its right chunk was not in the top five.
+
+The undefined term and the two joined issues were strictness calls by the reader. The unsupported claim is a definition that is not in the five excerpts: it fits the slide, but it comes from outside the text.
+
+**A fix.** One answer had a garbled formula: the model wrote its maths in LaTeX, the reply format reads the two characters `\t` as a tab, and so `\theta` came out as a tab followed by `heta`. The instructions now say to write plain text, with no LaTeX, no dollar signs and no backslashes, and to spell out Greek letters. One real call with the same question came back clean, and a test checks that the rule is in the instructions. 239 tests pass.
+
+**What this does not show.**
+- One reader per answer, 70 answers, one run. The readers are language models, as in decision 25.
+- The places and reference answers are the same ones as before, from two passes that I have not each checked by hand.
+- The uncited opening sentence is still there in 5 of 63 answers. The prompt rule reduced it and did not remove it.
+- Nothing here is measured on the search with keyword search added.
+
+**Next.** A rule for conflicts, so that an answer says when two sources give different numbers, or a better reading of handwriting. Neither is built.
+
+---
+
+## 29. Keyword search (BM25) merged with the two meaning searches
+
+**Problem.** A search by meaning can pass over the exact word a student typed, and the transcript mishears abbreviations (an acronym comes out as an ordinary word), so the speech alone cannot always find them. The slide text spells them correctly. Keyword search, which counts shared words, is the usual partner for that. The rule I set in decision 27 was to keep it only if the results improve on all three question sets.
+
+**What I built.** `src/retrieval/keyword_search.py`. A text is lower-cased and cut into words of letters and digits, and a short list of common words (75 of them, such as "the", "what", "is") is dropped. BM25 (the Okapi version, from `rank_bm25`) then scores every chunk: a word that is rare across the chunks counts more than a common one, repeating a word helps less and less, and a long chunk does not win by length alone. Chunks that share no word with the question are left out. Nothing new is stored and the database is not rebuilt: the index is made from the chunks already in Qdrant, which takes milliseconds for 96 chunks. There are two keyword signals: `bm25`, which reads the full text of the chunk (slide text, description and speech), and `bm25_speech`, which reads the speech only. A keyword list is merged with the two meaning lists by the same reciprocal rank fusion. A BM25 score is not a similarity between 0 and 1, so the merge never shows it as the score of a result (a chunk found only by keywords shows 0.0), and a search that uses only keywords does not load the embedding model. A property of the formula caught me in the tests: a word that is in half of all chunks or more counts for nothing, so a test corpus of two chunks found nothing until I added unrelated chunks to it, as a real course has. 254 tests pass.
+
+**Results.** hit@1 / hit@3 / MRR. Everything here is search only, with no call to Gemini.
+
+| Search | First set (11) | Harder set (36) | Third set (27) |
+|---|---|---|---|
+| The two meaning searches merged (decision 27) | 0.82 / 0.91 / 0.882 | 0.75 / 0.94 / 0.844 | 0.70 / 0.89 / 0.815 |
+| **Plus keyword search on the full text** | 0.82 / 1.00 / 0.894 | **0.89 / 1.00 / 0.931** | **0.78 / 0.93 / 0.861** |
+| Plus keyword search on the speech only | 0.73 / 0.91 / 0.841 | 0.89 / 0.94 / 0.922 | 0.78 / 0.93 / 0.861 |
+| Keyword search on the full text alone | 0.64 / 1.00 / 0.803 | 0.69 / 0.89 / 0.798 | 0.74 / 0.93 / 0.830 |
+
+Over the 74 questions together, the first result is right for 0.838 of them (up from 0.743), the right place is in the top 3 for 0.973 (up from 0.919), and MRR goes from 0.839 to about 0.90. The decoy questions, the weakest type, improve: the first result is right for 8 of 9 on the harder set (6 of 9 before), and for 4 of 6 on the third set (3 of 6 before). Keyword search alone is better than either meaning search alone on the third set (0.74 against 0.70 for the speech search and 0.59 for the full-text search).
+
+**Chosen.** The default is now the two meaning searches plus keyword search on the full text (`RETRIEVAL_SIGNALS=speech,full,bm25`). It is no worse than before on any of the three sets in hit@1, hit@3, hit@5 or MRR, and the first set ties in hit@1. The speech-only keyword search does as well on the other two sets but lowers the first set (hit@1 0.82 to 0.73), so it fails my rule and is not used.
+
+**What this does not show.**
+- I chose the previous search among ten variants partly by the third set, and I tried three more here, so its numbers are a little optimistic. It has 27 questions, so one question is 3.7 points of hit@1. On the first set the gain is at ranks 2 and 3 and not at rank 1.
+- I have not run the answer step on this search.
+- The list of common words and the lack of stemming (the plural of a word is a different word) are not tuned.
+- The index is rebuilt for every question. That is fine for 96 chunks, and a large course would need it cached.
+
+**Next.** Reranking, which I only tried after this (decision 30).
+
+---
+
+## 30. Reranking: built, measured, and left off
+
+**Problem.** The decoy questions are the weak spot: the right chunk is found, but a look-alike ranks above it. A cross-encoder reads the question and one chunk together and scores the pair, which should tell a chunk that answers from one that only talks about the same topic. It is slower, since nothing can be computed in advance, so it only re-reads the best candidates of the first search. I set the rule at the start: add it only if it measurably helps.
+
+**What I built.** `src/retrieval/reranker.py`, with the model `BAAI/bge-reranker-v2-m3` (the same family as the embedding model, multilingual, and able to read long texts), loaded through sentence-transformers, in half precision on the GPU. For each question it reads the question with the full text of each of the best 20 candidates from the search, up to 3,072 tokens, the same limit as the embeddings so that the end of a long chunk is not cut off. The score of a result is the model's relevance score between 0 and 1. It is off by default and is turned on with `RERANK=true`. Two ways to use its opinion, set with `RERANK_MODE`: `replace`, where the final order is the reranker's, and `blend`, where the first search's order and the reranker's order are merged by the same rank fusion. It downloads about 2 GB the first time. 262 tests pass; they use a fake model, so the real one is never loaded.
+
+**Results.** hit@1 / hit@3 / MRR on the same three sets, against the default of decision 29.
+
+| Search | First set (11) | Harder set (36) | Third set (27) |
+|---|---|---|---|
+| Default (decision 29) | 0.82 / 1.00 / 0.894 | 0.89 / 1.00 / 0.931 | 0.78 / 0.93 / 0.861 |
+| Reranked, `replace` | 0.73 / 1.00 / 0.848 | 0.69 / 0.97 / 0.827 | 0.85 / 0.96 / 0.910 |
+| Reranked, `blend` | 0.82 / 1.00 / 0.909 | 0.83 / 1.00 / 0.903 | 0.81 / 1.00 / 0.907 |
+
+On the decoy questions, the first result is right for 0.89 of the harder set by default, 0.67 with `replace` and 0.78 with `blend`; on the third set it is 0.67 by default, 1.00 with `replace` and 0.83 with `blend`. Most of what `replace` loses is the right chunk dropping from first to second place, usually a neighbouring chunk on the same slide, so the top 3 and top 5 barely move. It also rescues some questions that the first search ranked third to sixth. Over the 74 questions, `blend` gives hit@1 0.824 against 0.838, hit@3 1.00 against 0.973, hit@5 1.00 against 0.986 and MRR 0.905 against 0.900.
+
+**Chosen: leave it off.** `replace` is worse on two of the three sets. `blend` is worse on the harder set (hit@1 down by 2 questions, MRR 0.931 to 0.903), so neither passes my rule. What `blend` does gain is at ranks 3 to 5, which is where the answer step reads, but that is about one question in 74. A second model of about 2 GB next to the embedding model, in GPU memory, and a second look at 20 chunks per question, are not worth that. The code stays, behind the switch (`RERANK=true RERANK_MODE=blend`).
+
+**A side result.** The reranker's best score separates the questions the lectures answer from the ones they do not far better than the similarity scores do. If I choose the best single cut-off for each set (which flatters it), it sorts 100%, 97% and 100% of the questions of the three sets correctly, against 100%, 90% and 90% for the similarity scores. But the gaps are thin and differ from set to set: on the third set the highest score of a question that is not covered is 0.34 and the lowest of an answerable one is 0.37, and on the harder set the near-miss questions that are not covered reach 0.92 while one answerable question scores 0.62. So I do not use it to decide when to refuse, and a safe cut-off needs a fresh question set.
+
+**What this does not show.**
+- Only one `blend` variant, tried after seeing `replace`, and only 20 candidates. The third set has now been used to choose among many variants, so its numbers are optimistic.
+- Eleven, 36 and 27 questions. A difference of one or two questions is noise.
+- I did not time the extra cost per question.
+- The conflict of two sources in decision 28 is not a ranking problem, so reranking does not touch it.
+
+**Next.** A new, untouched question set before I claim a final number. The answer step again on the search of decision 29. The comparison with the Gemini embedding model (decision 12). Then a user interface.

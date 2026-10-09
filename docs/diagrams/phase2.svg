@@ -43,16 +43,16 @@
 <rect x="36" y="564" width="288" height="96" rx="14" fill="#FFFFFF" stroke="#8F99A8" stroke-width="2" stroke-dasharray="7 5"/>
 <circle cx="74" cy="612.0" r="22" fill="#8F99A8"/>
 <g transform="translate(74,612.0) scale(1.0)"><circle cx="0" cy="0" r="10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="5.5" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="0" cy="0" r="1.8" fill="#FFFFFF"/></g>
-<text x="110" y="592" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Test with real questions</text>
-<text x="110" y="612" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Measure how often the right</text>
-<text x="110" y="628" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">chunk is among the 5 found.</text>
+<text x="110" y="592" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">A fresh question set</text>
+<text x="110" y="612" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">A clean test, before claiming a</text>
+<text x="110" y="628" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">final number.</text>
 <text x="110" y="648" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#586577">next</text>
 <rect x="36" y="676" width="288" height="96" rx="14" fill="#FFFFFF" stroke="#8F99A8" stroke-width="2" stroke-dasharray="7 5"/>
 <circle cx="74" cy="724.0" r="22" fill="#8F99A8"/>
 <g transform="translate(74,724.0) scale(1.0)"><path d="M-10,7 L-3,0 L2,4 L10,-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4,-7 H10 V-1" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
-<text x="110" y="704" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Improve the weak spots</text>
-<text x="110" y="724" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Search by exact words too, and</text>
-<text x="110" y="740" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">re-order results, if it helps.</text>
+<text x="110" y="704" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Compare embeddings</text>
+<text x="110" y="724" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Try the Gemini model against</text>
+<text x="110" y="740" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">bge-m3.</text>
 <text x="110" y="760" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#586577">later</text>
 <path d="M180.0,664 L180.0,672" fill="none" stroke="#7B8798" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6 5"/>
 <polygon points="180.0,672 174.5,662.0 185.5,662.0" fill="#7B8798"/>
@@ -77,8 +77,8 @@
 <circle cx="692" cy="424.0" r="22" fill="#DB8A33"/>
 <g transform="translate(692,424.0) scale(1.0)"><circle cx="-2" cy="-2" r="7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3,3 L10,10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/></g>
 <text x="728" y="396" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Find the closest chunks</text>
-<text x="728" y="416" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">The 5 chunks whose numbers are</text>
-<text x="728" y="432" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">closest in meaning.</text>
+<text x="728" y="416" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">The 5 best matches, by meaning</text>
+<text x="728" y="432" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">and by exact words.</text>
 <text x="728" y="468" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#94500B">python -m src.search</text>
 <circle cx="658" cy="372" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
 <text x="658" y="376.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C3</text>

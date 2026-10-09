@@ -495,10 +495,10 @@ def draw_phase2():
         d.arrow([(left_x + card_w / 2, row_y[i] + card_h + 6), (left_x + card_w / 2, row_y[i + 1] - 6)])
 
     # the planned work
-    d.card(left_x, planned_first_y, card_w, planned_card_h, "planned", "target", "Test with real questions",
-           "Measure how often the right chunk is among the 5 found.", "next", dashed=True)
-    d.card(left_x, planned_second_y, card_w, planned_card_h, "planned", "trend", "Improve the weak spots",
-           "Search by exact words too, and re-order results, if it helps.", "later", dashed=True)
+    d.card(left_x, planned_first_y, card_w, planned_card_h, "planned", "target", "A fresh question set",
+           "A clean test, before claiming a final number.", "next", dashed=True)
+    d.card(left_x, planned_second_y, card_w, planned_card_h, "planned", "trend", "Compare embeddings",
+           "Try the Gemini model against bge-m3.", "later", dashed=True)
     d.arrow([(left_x + card_w / 2, planned_first_y + planned_card_h + 4), (left_x + card_w / 2, planned_second_y - 4)], dashed=True)
 
     # part C
@@ -507,7 +507,7 @@ def draw_phase2():
     d.card(right_x, row_y[1], card_w, card_h, "answer", "numbers", "Turn it into numbers",
            "With the same model that handled the chunks.", "bge-m3", number="C2")
     d.card(right_x, row_y[2], card_w, card_h, "answer", "search", "Find the closest chunks",
-           "The 5 chunks whose numbers are closest in meaning.", "python -m src.search", number="C3")
+           "The 5 best matches, by meaning and by exact words.", "python -m src.search", number="C3")
     d.card(right_x, row_y[3], card_w, card_h, "answer", "write", "Write the answer",
            "Gemini answers from those 5 chunks only, and cites them.", "Gemini (cloud API)", number="C4")
     d.card(right_x, row_y[4], card_w, card_h, "answer", "check", "Check and show sources",

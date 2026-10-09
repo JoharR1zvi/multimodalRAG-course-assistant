@@ -1,7 +1,7 @@
 # Phase 2 plan: from knowledge objects to cited answers
 
-Status: **a working prototype exists (2026-10-08), with evaluations on three question sets (decisions 24, 25 and 27).** The steps below are built up to cited answers, and the settings are compared: the default search now merges a speech search and a full-text search. Keyword search, reranking and the embedding-model comparison are next.
-Last updated: 2026-10-08.
+Status: **a working prototype exists (2026-10-08), with evaluations on three question sets (decisions 24, 25, 27, 29 and 30).** The steps below are built up to cited answers, and the settings are compared: the default search now merges a speech search, a full-text search and a keyword search. Reranking is built and switched off. A fresh question set and the embedding-model comparison are next.
+Last updated: 2026-10-09.
 
 ## Where each step stands
 
@@ -9,12 +9,12 @@ Last updated: 2026-10-08.
 |---|---|---|
 | 2.0 | Carry all three versions of the slide text into the knowledge objects | Done |
 | 2.1 | Chunking, `chunks.json`, checks in the exit check | Done (decision 19) |
-| Evaluation set | Questions with known answer locations | Built, kept private (decision 23). `python -m src.evaluate` runs it. Baselines of the first search: hit@1 0.91, MRR 0.939 on the first set of 11 questions (decision 24), and hit@1 0.58, MRR 0.711 on a harder set of 36 (decision 25). A third set of 27 was added to check the tuning (decision 27). After tuning: 0.82 / 0.882, 0.75 / 0.844 and 0.70 / 0.815 |
+| Evaluation set | Questions with known answer locations | Built, kept private (decision 23). `python -m src.evaluate` runs it. Baselines of the first search: hit@1 0.91, MRR 0.939 on the first set of 11 questions (decision 24), and hit@1 0.58, MRR 0.711 on a harder set of 36 (decision 25). A third set of 27 was added to check the tuning (decision 27). After tuning: 0.82 / 0.882, 0.75 / 0.844 and 0.70 / 0.815. With keyword search added (decision 29): 0.82 / 0.894, 0.89 / 0.931 and 0.78 / 0.861 |
 | 2.2 | Embeddings behind one swappable interface | The local model (bge-m3) is done. The Gemini provider is not built, so the comparison is pending (decisions 12 and 20) |
 | 2.3 | Vector store (embedded Qdrant) and indexing | Done (decision 21). Indexing is pipeline stage 10 |
-| 2.4 | Retrieval | Done in two steps. Dense search with a baseline (`python -m src.search`, decision 24), then the settings comparison (which slide text, chunk size, cutting at slide changes) and a merge of two meaning searches by rank fusion, which is now the default (decision 27). Keyword search (BM25) is not done |
-| 2.5 | Reranking | Not started, and only if the evaluation shows a gain |
-| 2.6 | Cited answers | Done (`python -m src.ask`, decision 22). All 7 questions the lectures do not cover were refused, and 33 of the 36 harder answers cite the right place (the 33 where the right chunk was in the top 5). A claim-by-claim check found 116 of 123 claims supported by the cited excerpt and none invented (decision 25). Since then every sentence must carry a citation (answers with an uncited sentence went from 5 to 2 of 36), and the answer form has `full`, `partial` and `none` instead of yes or no (decision 26) |
+| 2.4 | Retrieval | Done in three steps. Dense search with a baseline (`python -m src.search`, decision 24), then the settings comparison (which slide text, chunk size, cutting at slide changes) and a merge of two meaning searches by rank fusion (decision 27), then keyword search (BM25) as a third list in the same merge, which is now the default (decision 29). Over the 74 questions of the three sets the first result is right for 0.838 and the right place is in the top 3 for 0.973 |
+| 2.5 | Reranking | Built and measured, switched off (`RERANK=true` to try it). A cross-encoder re-reads the best 20 candidates; neither way of using its order passed the rule of improving on every set (decision 30) |
+| 2.6 | Cited answers | Done (`python -m src.ask`, decision 22). All 7 questions the lectures do not cover were refused, and 33 of the 36 harder answers cite the right place (the 33 where the right chunk was in the top 5). A claim-by-claim check found 116 of 123 claims supported by the cited excerpt and none invented (decision 25). Since then every sentence must carry a citation (answers with an uncited sentence went from 5 to 2 of 36), and the answer form has `full`, `partial` and `none` instead of yes or no (decision 26). On the search of decision 27 the answer step was run again on 70 questions: 218 of 227 claims are supported by the cited excerpt, and one answer picked one of two disagreeing sources without saying so (decision 28) |
 
 How the first version differs from the plan below:
 
@@ -123,11 +123,11 @@ Check: point count equals chunk count; a raw search returns payloads with timest
 
 1. **Dense only first.** Embed the question, search Qdrant, print the top 5 with score, lecture, `mm:ss` and a text preview. This is the baseline.
 2. **Evaluation set before any tuning.** 15 to 20 real questions on lecture_01, each with the time range where the answer is spoken, stored in `tests/retrieval_eval.json`. The metric is hit@k: does a chunk overlapping the correct range appear in the top k? Every later change is judged by this number. (When I reach this step I'll write up how the evaluation methods work: recall@k, MRR, why to measure first, and how generated answers can be judged.)
-3. **Hybrid.** Add BM25 keyword search (`rank_bm25`) over the same chunks and merge both ranked lists with Reciprocal Rank Fusion: each result scores the sum of `1 / (60 + rank)` across the lists. Dense search is weak on exact terms such as formulas, acronyms and code identifiers, and keywords catch those. Kept only if hit@k improves.
+3. **Hybrid.** Add BM25 keyword search (`rank_bm25`) over the same chunks and merge both ranked lists with Reciprocal Rank Fusion: each result scores the sum of `1 / (60 + rank)` across the lists. Dense search is weak on exact terms such as formulas, acronyms and code identifiers, and keywords catch those. Kept only if hit@k improves. *Done (decision 29):* the keyword list reads the stored chunks, is merged with the two meaning lists by the same fusion, and improved the results on all three question sets.
 
 ## 2.5 Reranking (conditional): `src/retrieval/reranker.py`
 
-A cross-encoder reads the question and a chunk together and scores the pair, which is more accurate than comparing two independently computed vectors, but slower because it runs once per pair. It re-scores the top ~20 results and keeps the best 5. It is added only if the evaluation set shows a clear gain. (I'll add a longer note on cross-encoders versus embedding models when I reach this step.)
+A cross-encoder reads the question and a chunk together and scores the pair, which is more accurate than comparing two independently computed vectors, but slower because it runs once per pair. It re-scores the top ~20 results and keeps the best 5. It is added only if the evaluation set shows a clear gain. *Built and measured (decision 30), and left off:* it did not clear that bar. The model is `BAAI/bge-reranker-v2-m3`; `RERANK=true` turns it on, and `RERANK_MODE` chooses between replacing the order and blending it with the first search's order. (I'll add a longer note on cross-encoders versus embedding models.)
 
 ## 2.6 Generation: `src/generation/llm_service.py`
 
