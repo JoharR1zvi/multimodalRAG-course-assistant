@@ -1,6 +1,6 @@
 # Decision log
 
-One entry per decision: the problem, what I considered, what I chose, why, and what happened. Newest decisions go at the bottom. Entries marked *pending* are waiting on results.
+One entry per decision: the problem, what I considered, what I chose, why, and what happened. Newest decisions go at the bottom.
 
 Last updated: 2026-10-08.
 
@@ -86,7 +86,7 @@ Last updated: 2026-10-08.
 
 **Chosen.** Sort keyframes by time and use a binary search (`bisect`) to find the last keyframe at or before the segment's start time.
 
-**Limitation found later.** Only the start time is used. A slide shown for a few seconds between two segment starts receives no speech. Four of 64 slides in the first lecture have empty transcripts. I opened all four: three were section title slides ("Calibration scores" and similar) clicked through quickly, and one was a real content slide with annotations. They must not be dropped, because titles carry the topic. The plan is to merge blank slides into the following chunk (see `phase2-plan.md`).
+**Limitation found later.** Only the start time is used. A slide shown for a few seconds between two segment starts receives no speech. Four of 64 slides in the first lecture have empty transcripts. I opened all four: three were section title slides ("Calibration scores" and similar) clicked through quickly, and one was a real content slide with annotations. They must not be dropped, because titles carry the topic. Blank slides are merged into the following chunk (decision 19).
 
 ---
 
@@ -124,7 +124,7 @@ Last updated: 2026-10-08.
 
 ---
 
-## 10. Phase 2 design choices (planned)
+## 10. Phase 2 design choices
 
 Full reasoning in `phase2-plan.md`. Summary:
 
@@ -136,7 +136,7 @@ Full reasoning in `phase2-plan.md`. Summary:
 - **Measure before tuning:** write a question set with known answer locations first, then compare dense search, hybrid search (dense plus BM25, merged by reciprocal rank fusion) and optional reranking by hit@k.
 - **A hosted database would not save disk.** Vectors for a full course are a few MB. The disk is taken by the audio file and the videos, so the audio file is deleted after transcription.
 
-**Status (2026-10-08).** Built, except the embedding comparison, hybrid search and reranking. What happened to each point is in decisions 19 to 23.
+**Status.** Built: chunking, the local embedding model, the database, search with keyword search added (decision 29), a reranker that is switched off (decision 30) and cited answers. I did not compare the local embedding model with a hosted one (decision 12). What happened to each point is in decisions 19 to 30.
 
 ---
 
@@ -173,11 +173,9 @@ Full reasoning in `phase2-plan.md`. Summary:
 
 ---
 
-## 12. Embedding model comparison (pending)
+## 12. Embedding model: the local model only
 
-To be filled in after steps 2.2 and 2.4: hit@k, latency, cost and rate-limit behaviour for the local model against the API model, and which one became the default and why.
-
-**Status (2026-10-08).** Only the local model (bge-m3) is built and working, so the comparison has not been run. The Gemini provider answers "not built yet". What I learned about the local model so far is in decision 20. The settings experiments of decision 27 all used bge-m3, so they do not answer this one, and it stays open.
+The design called for a local model (bge-m3) and a hosted model behind one swappable interface. Only the local model is built and used, so I have no comparison of hit@k, speed, cost or rate limits between the two. What I learned about the local model is in decision 20, and the settings experiments of decision 27 all used bge-m3.
 
 ---
 
@@ -193,7 +191,7 @@ To be filled in after steps 2.2 and 2.4: hit@k, latency, cost and rate-limit beh
 
 **Verification.** Re-extracting keyframes for the first lecture into a scratch folder gave the same 64 filenames as the original run. That also confirmed that an earlier readability rewrite of the extractor behaves the same. No file means defaults, a typo gives an immediate error, and a valid override is applied.
 
-**Limits and what comes next.** A hand-written JSON file is a developer tool, not something a user should have to touch. The plan is an automatic choice that fills in the same numbers, with the file kept as the final override: (1) look at a few sampled frames, decide "slides" or "code demo", and use a preset; (2) measure the video's normal frame-to-frame noise and set the threshold above it; (3) later, a "what kind of video is this" choice in an upload form. I will build this after the code-screencast lecture shows what the numbers need to be, because designing it now would be guessing. Each run should also save the settings it actually used next to its outputs.
+**Limits.** A hand-written JSON file is a developer tool, not something a user should have to touch, and the keyframe settings are not chosen automatically from the video.
 
 **First real use (2026-10-06).** The code screencast (decision 17) needed its own settings, and they were not what I predicted. I expected the default 5% change threshold to miss most changes, because typing changes only a few percent of the screen. Instead the defaults saved 156 keyframes for a 51-minute video, far too many, because switching between terminal and editor windows and scrolling output are large changes. A higher threshold alone then caused the opposite problem: stretches of pure typing were only caught by the safety net. The settings I settled on were a change threshold of 0.15 and a safety-net gap of 90 seconds, which gave 73 keyframes. The point for the later automation: one global threshold cannot separate "window switch" from "typing", so a preset per video type, or a smarter detector for code, is the realistic direction.
 
@@ -230,7 +228,7 @@ Fixes: `description` now comes before `content_type` in the form, so the model w
 
 **Early numbers** (63 slides, word level only): a median 5% of the model's words do not appear in the OCR text (max 29%), mostly words OCR missed. A median 36% of the OCR words are missing from the model's text, and the examples are interface words (`file`, `edit`, `view`, `help`, `layer`) and garbage like `qaqar`. This cannot tell junk from real omissions, and it says nothing about meaning.
 
-**Plan.** Finish the OCR cleanup layers (decision 11) first. Build the evaluation set. Then run retrieval three times, changing only the text that gets embedded: (1) raw OCR, as the baseline that shows what cleanup buys; (2) cleaned OCR; (3) the model's `clean_text`. Compare hit@k.
+**Approach.** Finish the OCR cleanup layers (decision 11) first. Build the evaluation set. Then run retrieval three times, changing only the text that gets embedded: (1) raw OCR, as the baseline that shows what cleanup buys; (2) cleaned OCR; (3) the model's `clean_text`. Compare hit@k.
 
 **Things to weigh.** OCR is literal, local, free and works offline. The model's text is much cleaner and keeps code indentation, but it can paraphrase, and it depends on a quota and on the service being up. A likely outcome is the model's text as the main source with OCR as the fallback for a frame that fails. The measured numbers decide it, and the code screencast is the hardest test.
 
@@ -307,8 +305,8 @@ Speech recognition runs at about 17 to 19 times real time on the GPU. The vision
 **Considered.**
 - *One chunk per slide.* Rejected for the numbers above: tiny slides make useless search targets and long ones make blurry ones. It also breaks when one slide is shown in several screen states, which happens a lot with annotated slides. The next screen change kept the same title in 12 of 59 cases in lecture 1 and in 27 of 62 in lecture 2.
 - *Cut by length and attach the slides afterwards.* Chosen.
-- *Cut where the meaning shifts* (semantic chunking). It costs more and tends not to beat simple methods by much, so I left it for later.
-- *Cut by length but prefer a real slide change.* Not built yet, see the experiment below.
+- *Cut where the meaning shifts* (semantic chunking). It costs more and tends not to beat simple methods by much, so I did not use it.
+- *Cut by length but prefer a real slide change.* Tried later as an option, and left off (decision 27).
 
 **Chosen.** Pieces of speech go into a bucket in time order. At about 350 words the bucket is sealed, and the next one starts with a copy of the last piece (one piece of overlap). A bucket never goes over 450 words. A slide nobody spoke during waits and joins the next bucket, because a title comes before the content it names. A tiny last bucket is merged into the one before it. Chunks come from the timed speech pieces in `alignment.json`, not from the joined text, so every chunk has exact start and end times. Each chunk keeps all three versions of the slide text and the diagram description, and `embed_text` is built from slide text, description and speech. Sizes are counted in words of speech, which turned out to matter, see decision 20.
 
@@ -326,7 +324,7 @@ Speech recognition runs at about 17 to 19 times real time on the GPU. The vision
 
 **Problem.** Turn chunks and questions into vectors, with a model I can swap.
 
-**Chosen.** BAAI/bge-m3 through sentence-transformers, on the GPU in half precision, giving 1,024 numbers per text, scaled to length 1. The provider and model come from `config.py`. The vector size is measured and never typed in. Only the local provider is built; the Gemini one answers "not built yet", so the comparison in decision 12 is still pending. Every vector is cached on disk, in a file named by a hash of the model, the token limit and the text.
+**Chosen.** BAAI/bge-m3 through sentence-transformers, on the GPU in half precision, giving 1,024 numbers per text, scaled to length 1. The provider and model come from `config.py`. The vector size is measured and never typed in. Only the local provider exists, so I have no comparison with a hosted embedding model (decision 12). Every vector is cached on disk, in a file named by a hash of the model, the token limit and the text.
 
 **A mistake I found by measuring.** I had sized chunks in words, but the model reads tokens (pieces of words) and cuts everything after 1,024 tokens without a warning. I counted the tokens of all 96 embedded texts:
 
@@ -340,7 +338,7 @@ So 55 of 96 chunks lost the end of their text. The embedded text starts with the
 
 **Fix.** The limit is now 3,072 tokens (the model accepts up to 8,192), the batch size went from 8 to 4 for a 6 GB card, and the service prints a warning if any text is still cut. The token limit is part of the cache key, because otherwise the 96 vectors already saved from cut-off text would have been reused silently. No text is cut now, and embedding all 96 chunks takes about two seconds per lecture once the model is loaded (peak GPU memory about 2.7 GB). A quick check by hand gave the same top results before and after the change.
 
-**What this leaves open.** More than half of what is embedded is slide material, so the vector may lean toward the slide and away from the speech. Whether that helps or hurts is a measurement. The comparison I plan: speech only, speech plus slide text, and everything, with the three versions of the slide text (decision 15). I would trim repeated slide text and cap descriptions only if the numbers show the slide text drowning out the speech. **Result (2026-10-08, decision 27):** searching the speech alone beat the full text on two of three question sets, and worse on the third, where the questions repeat the slide's words. So the slide text does drown the speech for some questions and help for others. I did not trim it. I store both vectors for every chunk and merge the two searches.
+**What this leaves open.** More than half of what is embedded is slide material, so the vector may lean toward the slide and away from the speech. Whether that helps or hurts is a measurement. The comparison to make: speech only, speech plus slide text, and everything, with the three versions of the slide text (decision 15). The rule was to trim repeated slide text and cap descriptions only if the numbers showed the slide text drowning out the speech. **Result (2026-10-08, decision 27):** searching the speech alone beat the full text on two of three question sets, and worse on the third, where the questions repeat the slide's words. So the slide text does drown the speech for some questions and help for others. I did not trim it. I store both vectors for every chunk and merge the two searches.
 
 **Lesson.** A model's input limit is a ceiling and not a target, so I measure in the unit the model uses (tokens, not words) and never let text be cut silently.
 
@@ -423,7 +421,7 @@ The answer step, in one run at temperature 0: all three questions the lectures d
 - The answer step was run once.
 - A cited chunk in the right place does not prove that it supports every sentence it is attached to.
 
-**Next.** These numbers are the baseline for the comparisons planned in decisions 15, 19 and 20 (which slide text is embedded, how much of it, chunk size, cutting at slide changes), and then for keyword search merged with this search. Because the numbers are already so high, the evaluation set needs more or harder questions before it can separate close variants. That is decision 25.
+**Follow-up.** The numbers were already so high that this set could not separate close variants, so I built a harder one (decision 25).
 
 ---
 
@@ -462,7 +460,7 @@ By type, the first result is right for: paraphrased 0.71 of the time (MRR 0.857)
 - The claim check is one pass per answer, and one call was a strictness call.
 - It was one run of the answer step.
 
-**Next.** Two small changes to the answer step: ask for a citation on every sentence, including the first (and warn in code when a sentence has none), and let an answer that gives only the covered part of a question set "answerable". Then the settings experiments of decisions 15, 19 and 20, judged by hit@1 and MRR on this set, then keyword search merged with this search, and reranking if the decoy questions stay weak, since a reranker is built for exactly that case. The two answer-step changes are done, see decision 26.
+**Follow-up.** The two answer-step changes are in decision 26, and the settings comparisons are in decision 27.
 
 ---
 
@@ -487,7 +485,7 @@ By type, the first result is right for: paraphrased 0.71 of the time (MRR 0.857)
 
 **What this does not show.** One run of 36 questions. The model's answers vary a little from run to run, so 5 against 2 is a trend and not a precise rate. One answer repeats a mishearing from the transcript as if the lecturer had said it, and the claim check cannot catch that, because the excerpt contains the same mishearing.
 
-**Next.** The settings experiments of decisions 15, 19 and 20, judged by hit@1 and MRR on the harder set, then keyword search merged with this search, and reranking if the decoy questions stay weak. The settings experiments are done, see decision 27.
+**Follow-up.** The settings comparisons are in decision 27.
 
 ---
 
@@ -550,7 +548,7 @@ hit@3 over all 74: 0.878 to 0.919. hit@5: 0.946 to 0.973. On the new set, strict
 
 **A failure of my own tooling.** Two evaluations that finished in the same second saved to the same file name, and the file came out as a mix of both (a second file was overwritten). I noticed because one file would not parse, found the cause, re-ran the three lost evaluations one after the other, and changed the evaluation so that it never overwrites a results file: a second run in the same second gets a counter in its name. A new test fails if I put the old behaviour back.
 
-**Next.** Keyword search (BM25) merged with the same fusion code, reranking for the decoy questions, running the answer step on all three sets with the new search, a repeat of the claim-by-claim check, and the comparison with the Gemini embedding model (decision 12). The answer run and the repeated check are in decision 28, keyword search is in decision 29, and reranking is in decision 30.
+**Follow-up.** The answer run and the repeated check are in decision 28, keyword search is in decision 29, and reranking is in decision 30.
 
 ---
 
@@ -577,8 +575,7 @@ The undefined term and the two joined issues were strictness calls by the reader
 - The places and reference answers are the same ones as before, from two passes that I have not each checked by hand.
 - The uncited opening sentence is still there in 5 of 63 answers. The prompt rule reduced it and did not remove it.
 - Nothing here is measured on the search with keyword search added.
-
-**Next.** A rule for conflicts, so that an answer says when two sources give different numbers, or a better reading of handwriting. Neither is built.
+- An answer does not say when two sources disagree on a number, which is what happened in the first case above.
 
 ---
 
@@ -607,7 +604,7 @@ Over the 74 questions together, the first result is right for 0.838 of them (up 
 - The list of common words and the lack of stemming (the plural of a word is a different word) are not tuned.
 - The index is rebuilt for every question. That is fine for 96 chunks, and a large course would need it cached.
 
-**Next.** Reranking, which I only tried after this (decision 30).
+**Follow-up.** Reranking is in decision 30.
 
 ---
 
@@ -636,5 +633,3 @@ On the decoy questions, the first result is right for 0.89 of the harder set by 
 - Eleven, 36 and 27 questions. A difference of one or two questions is noise.
 - I did not time the extra cost per question.
 - The conflict of two sources in decision 28 is not a ranking problem, so reranking does not touch it.
-
-**Next.** A new, untouched question set before I claim a final number. The answer step again on the search of decision 29. The comparison with the Gemini embedding model (decision 12). Then a user interface.

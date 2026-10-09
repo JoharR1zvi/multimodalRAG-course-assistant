@@ -1,4 +1,4 @@
-# Roadmap
+# Where the project stands
 
 Last updated: 2026-10-09.
 
@@ -22,7 +22,7 @@ Each step was small and checked against the first lecture before moving on. All 
 2. **Layout-agnostic vision prompt with structured output** (`content_type`, `title`, `description`, `slide_number`, clean slide text). *Done (2026-10-06), applied to the first lecture.* No earlier diagram lost, text-only slides no longer get descriptions, nothing failed. Also added a request-rate limiter and worker threads. See decision 14.
 3. **Delete `audio.wav` after the transcript exists**, as a config option, with the matching skip logic in the pipeline. *Done (2026-10-06).* See decision 16.
 4. **Process a second lecture that looks different from the first**: a code screencast, then a clean slide-deck recording. *Partly done (2026-10-06).* Lecture 2 (same style) and lecture 3 (a public code screencast) both ran end to end, and lecture 3 needed its own settings file. See decision 17. Not yet tried: a clean slide-deck recording without annotations or a webcam.
-5. **Real timings**, then speedups where the numbers justify them. *Timings done (2026-10-06), see decision 17.* Vision (quota-limited) and speech recognition are about 85% of the time. Remaining speed ideas are in "Speed work".
+5. **Real timings**, then speedups where the numbers justify them. *Timings done (2026-10-06), see decision 17.* Vision (quota-limited) and speech recognition are about 85% of the time.
 6. **OCR junk cleanup layers.** *Done (2026-10-06).* A new `clean` stage writes `cleaned_text` next to the raw OCR text, so raw OCR, cleaned OCR and the vision model's text can be compared fairly at retrieval time (decisions 11 and 15). Also fixed the label for camera shots in the code lecture.
 7. **First automated tests**: `align`, the grouping logic in `knowledge.py`, and `compute_difference`, on small hand-made data. *Done (2026-10-06).* 65 tests (43 at first, 22 more for the exit check in step 9) run in about 3 seconds with `python -m pytest`, with no video and no API calls. They also cover the OCR cleaning functions and the settings loader. To check that the tests can fail, I broke three small things on purpose (an off-by-one at the moment a slide appears, a cutoff comparison, a missing `.strip()`), and each break was caught by the matching test. Not covered, because they need a video, Tesseract or the API: speech, keyframe extraction end to end, OCR, the vision step and the pipeline runner.
 8. **Documentation pass** and publishing of the public docs. *Done (2026-10-06).* README, MIT license and these notes are public.
@@ -30,44 +30,20 @@ Each step was small and checked against the first lecture before moving on. All 
 
 ## Not covered by Phase 1
 
-A clean slide-deck recording without annotations or a webcam has not been tried yet. The project works on lecture video only; PDFs and PowerPoint files of the same slides are not processed. Neither blocks Phase 2.
+A clean slide-deck recording without annotations or a webcam has not been tried yet.
 
 ## Target video types
 
 Slides with a presenter, and code or screen demos. Whiteboard and blackboard recordings are out of scope for now.
 
-## Phase 2 (in progress)
+## Phase 2: what is built
 
-Done (2026-10-08): carrying the three versions of the slide text into the knowledge objects, chunking, the local embedding model with a cache, the Qdrant store with indexing as pipeline stage 10, dense search, cited answers, two evaluation sets (the questions themselves are private), the command that runs them with baseline numbers (decisions 24 and 25), a claim-by-claim check of the answers, and the settings comparison on three question sets, which ended with merging two searches as the default (decision 27); the answer step run again on that search, with a second claim-by-claim check of 70 answers (decision 28); keyword search merged with the two meaning searches, now the default (decision 29); and a reranker, built and left off because it was not clearly better (decision 30).
-
-Next, in this order:
-
-1. **A new, untouched question set** before claiming a final number: I chose the settings partly on the third set, so its numbers are a little optimistic (decisions 27, 29 and 30).
-2. **Run the answer step with the current search** (keyword search added) and repeat the claim-by-claim check, since the answers were last measured before keyword search (about 70 Gemini calls).
-3. **A rule for conflicts between sources**, so that an answer says when the slide and the speech give different numbers (decision 28).
-4. **The Gemini embedding provider and the comparison with bge-m3** (decision 12).
-5. **A user interface**: *a first version is built (2026-10-09)*, a small web page on top of the same search and answer steps (`python -m src.api`, architecture notes). It has not been tried by anyone but me.
+Done (2026-10-08): carrying the three versions of the slide text into the knowledge objects, chunking, the local embedding model with a cache, the Qdrant store with indexing as pipeline stage 10, dense search, cited answers, two evaluation sets (the questions themselves are private), the command that runs them with baseline numbers (decisions 24 and 25), a claim-by-claim check of the answers, and the settings comparison on three question sets, which ended with merging two searches as the default (decision 27); the answer step run again on that search, with a second claim-by-claim check of 70 answers (decision 28); keyword search merged with the two meaning searches, now the default (decision 29); a reranker, built and left off because it was not clearly better (decision 30); and a small web page that runs the same search and answer steps (`python -m src.api`).
 
 Done on the answer step (decision 26): a citation on every sentence, with a warning when one is missing (5 answers with an uncited sentence became 2 of 36), and a "partly covered" label instead of yes or no. Decision 28 added a rule that formulas are written as plain text.
 
 Details and the design are in `phase2-plan.md`.
 
-## Later
-
-A fuller backend API and user interface (a first small web page exists, see the list above). Ideas, not planned work: letting the answer model look at the slide pictures as well as the text, and reading a slide deck or PDF of the same slides to get cleaner slide text. The printed text would come from the file; the speech, the timing and the handwriting would still come from the video.
-
 ## Phase 2 decision made: which slide text gets embedded
 
 Compared on three question sets, with every variant recorded (decision 27). No version of the slide text wins on every set, so the default searches the speech alone and the full text, and merges the two lists (keyword search was added to the merge later, decision 29). Raw OCR, cleaned OCR and the vision model's text, with and without the diagram description, are all in the table there.
-
-## Automatic keyframe settings (after the code-screencast lecture)
-
-A hand-written `settings.json` is for developers. Plan: pick a preset from a few sampled frames (slides or code demo), and/or measure the video's normal frame-to-frame noise and set the threshold from it, and save the settings each run used. The file stays as the final override. See decision 13.
-
-## Speed work (after real timings exist)
-
-- Gemini calls: done as a rate limiter plus small thread pool. The free tier allows 15 requests per minute, so a lecture of 64 keyframes takes about 5 minutes and cannot go much faster without a higher quota (a `.env` setting) or several frames per request.
-- OCR images across CPU cores: skipping this, OCR takes under a minute per lecture (decision 17).
-- Run the GPU stage (speech) at the same time as the CPU and network stages for the same lecture, and pipeline across lectures so the GPU never waits.
-- Speech model tuning if it dominates: batched inference, voice activity filtering, compute type. Any change is checked against the current transcript first.
-- Last, because it changes output: keyframe sampling interval and frame downscaling, which need re-tuning.

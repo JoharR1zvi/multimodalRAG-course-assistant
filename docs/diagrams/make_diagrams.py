@@ -359,12 +359,12 @@ def draw_overview():
            "Like a library: first catalogue every book (A), then shelve them by topic (B), then ask the librarian a question (C).",
            size=13.5, fill=TEXT_COLOR, anchor="middle")
 
-    # what comes next
-    d.rect(24, next_y, width - 48, 56, fill="#FFFFFF", stroke=THEMES["planned"]["stroke"], radius=14, dashed=True, stroke_width=2)
-    d.icon("target", 24 + 38, next_y + 28, "planned", radius=18)
-    d.text(24 + 72, next_y + 25, "Ideas for next", size=13.5, weight="bold", fill=THEMES["planned"]["dark"])
+    # what was measured
+    d.rect(24, next_y, width - 48, 56, fill="#FFFFFF", stroke=THEMES["index"]["stroke"], radius=14, stroke_width=2)
+    d.icon("target", 24 + 38, next_y + 28, "index", radius=18)
+    d.text(24 + 72, next_y + 25, "Measured", size=13.5, weight="bold", fill=THEMES["index"]["dark"])
     d.text(24 + 72, next_y + 44,
-           "Test on fresh questions, and let the answer model see the slide pictures as well as the text.", size=12.5, fill=MUTED_COLOR)
+           "Tested on three sets of real questions, and every claim in a sample of answers was checked against its sources.", size=12.5, fill=MUTED_COLOR)
     return d
 
 
@@ -461,7 +461,7 @@ def draw_phase2():
     for i in range(5):
         row_y.append(first_y + step * i)
 
-    # the left side: part B on top, the planned work below it
+    # the left side: part B on top, the measured panel below it
     b_panel_y = 44
     b_panel_h = row_y[2] + card_h + 18 - b_panel_y
     planned_panel_y = b_panel_y + b_panel_h + 22
@@ -482,7 +482,7 @@ def draw_phase2():
 
     d.panel(20, b_panel_y, card_w + 32, b_panel_h, "index", "B   GET READY TO SEARCH", "once per lecture, stages 9 and 10")
     d.panel(right_x - 16, c_panel_y, card_w + 32, c_panel_h, "answer", "C   ANSWER A QUESTION", "every time someone asks")
-    d.panel(20, planned_panel_y, card_w + 32, planned_panel_h, "planned", "NEXT (planned, not built yet)", dashed=True)
+    d.panel(20, planned_panel_y, card_w + 32, planned_panel_h, "phase1", "MEASURED")
 
     # part B
     d.card(left_x, row_y[0], card_w, card_h, "phase1", "records", "Knowledge objects",
@@ -494,12 +494,12 @@ def draw_phase2():
     for i in range(2):
         d.arrow([(left_x + card_w / 2, row_y[i] + card_h + 6), (left_x + card_w / 2, row_y[i + 1] - 6)])
 
-    # the planned work
-    d.card(left_x, planned_first_y, card_w, planned_card_h, "planned", "target", "A fresh question set",
-           "A clean test, before claiming a final number.", "next", dashed=True)
-    d.card(left_x, planned_second_y, card_w, planned_card_h, "planned", "trend", "Compare embeddings",
-           "Try the Gemini model against bge-m3.", "later", dashed=True)
-    d.arrow([(left_x + card_w / 2, planned_first_y + planned_card_h + 4), (left_x + card_w / 2, planned_second_y - 4)], dashed=True)
+    # what was measured
+    d.card(left_x, planned_first_y, card_w, planned_card_h, "phase1", "target", "Real test questions",
+           "Three question sets with known answer places.", "python -m src.evaluate")
+    d.card(left_x, planned_second_y, card_w, planned_card_h, "phase1", "check", "Check the answers",
+           "Every claim is compared with its sources.", "claim by claim")
+    d.arrow([(left_x + card_w / 2, planned_first_y + planned_card_h + 4), (left_x + card_w / 2, planned_second_y - 4)])
 
     # part C
     d.card(right_x, row_y[0], card_w, card_h, "answer", "question", "Your question",

@@ -1,6 +1,6 @@
 # How the pipeline works
 
-These are my notes on how the pipeline works: what each stage does, how it does it, and why I built it that way. Phase 1 (stages 1 to 8) turns a lecture video into knowledge objects. Phase 2 (stages 9 and 10, and the search and answer commands) makes them searchable and answers questions from them. The reasoning behind the bigger choices, with numbers, is in [decisions.md](decisions.md). What is planned next is in [roadmap.md](roadmap.md) and [phase2-plan.md](phase2-plan.md).
+These are my notes on how the pipeline works: what each stage does, how it does it, and why I built it that way. Phase 1 (stages 1 to 8) turns a lecture video into knowledge objects. Phase 2 (stages 9 and 10, and the search and answer commands) makes them searchable and answers questions from them. The reasoning behind the bigger choices, with numbers, is in [decisions.md](decisions.md). Where the project stands is in [roadmap.md](roadmap.md), and the Phase 2 design is in [phase2-plan.md](phase2-plan.md).
 
 Last updated: 2026-10-08 (Phase 1 complete, Phase 2 prototype working).
 
@@ -105,7 +105,7 @@ Measured against Gemini's own text on three lectures, cleaning raised the share 
 
 The question: for this piece of speech, which slide was on screen? I sort the keyframes by time and use `bisect.bisect_right` on their timestamps, which finds the last keyframe at or before the segment's start in a binary search. Speech before the first keyframe gets `None`. The result is `alignment.json`.
 
-**Limitation.** Only the segment's *start* time is used. A slide shown for a few seconds between two segment starts gets no speech. On the first lecture, 4 of 64 slides have an empty transcript, and I opened all four: three are quick section-title slides and one is a real content slide. They must not be dropped, because titles carry the topic. The plan is to merge blank slides into the next chunk in Phase 2.
+**Limitation.** Only the segment's *start* time is used. A slide shown for a few seconds between two segment starts gets no speech. On the first lecture, 4 of 64 slides have an empty transcript, and I opened all four: three are quick section-title slides and one is a real content slide. They must not be dropped, because titles carry the topic. Blank slides are merged into the next chunk (decision 19).
 
 ## Stage 8: knowledge objects (`src/processing/knowledge.py`)
 
@@ -179,7 +179,7 @@ Which version of the slide text goes into `embed_text` is a setting (`CHUNK_SLID
 
 ## Stage 10: index (`src/embeddings/`, `src/database/`)
 
-**Embeddings** (`embedding_service.py`). An embedding is a list of numbers (1,024 for bge-m3) that stands for what a text means. Texts about similar ideas get lists that sit close together, so a question can find a passage that explains the same idea in other words. `embed_texts` is used for chunks and `embed_query` for a question. The model comes from `EMBEDDING_PROVIDER` and `EMBEDDING_MODEL` in `config.py`. Only the local provider (BAAI/bge-m3 through sentence-transformers, on the GPU in half precision) is built. A Gemini provider is planned for the comparison in [decision 12](decisions.md).
+**Embeddings** (`embedding_service.py`). An embedding is a list of numbers (1,024 for bge-m3) that stands for what a text means. Texts about similar ideas get lists that sit close together, so a question can find a passage that explains the same idea in other words. `embed_texts` is used for chunks and `embed_query` for a question. The model comes from `EMBEDDING_PROVIDER` and `EMBEDDING_MODEL` in `config.py`. Only the local provider (BAAI/bge-m3 through sentence-transformers, on the GPU in half precision) is built. See [decision 12](decisions.md).
 
 Rules I built in so the model can be swapped safely: the vector size is measured and never typed in, vectors are scaled to length 1, and any question or passage prefix a model needs belongs in this one file. Every vector is cached on disk, in a file named by a hash of the model, the token limit and the text, so running the indexing again does not use the model. The token limit is 3072, because my first limit silently cut off the speech of more than half the chunks. The story is in [decision 20](decisions.md).
 
@@ -303,7 +303,7 @@ In all three, each slide's end time equals the next slide's start time and no sp
 - Tesseract is weak on terminal and code text, so for code the vision model's text is the useful source.
 - Interface words are removed everywhere in `cleaned_text`, so a real use of "file" or "view" in lecture content is removed too. The raw text keeps it.
 - Slides shown for only a few seconds get no speech (stage 7).
-- This is a video RAG: only lecture recordings are processed. Slide decks and PDFs of the same slides are not read (they could give cleaner slide text; not built or measured).
+- The input is lecture video. A clean slide-deck recording without annotations or a webcam has not been tried.
 - The free Gemini quota sets the speed of the vision stage.
 - Search quality is measured on two small sets, 11 and 36 questions (decisions 24 and 25). The harder set separates settings much better, but chunk size, the slide text that gets embedded and the embedding model are still untested choices, and 36 questions is still small.
 - Chunks are cut by the number of words of speech, so a cut can fall in the middle of a slide (decision 19).
