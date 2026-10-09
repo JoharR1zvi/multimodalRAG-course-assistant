@@ -38,6 +38,9 @@ THEMES = {
 
 # Settings for white line icons drawn on top of a coloured circle
 LINE = 'fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
+# The same line settings with one value changed (an attribute may appear only once per element)
+LINE_THICK = LINE.replace('stroke-width="2"', 'stroke-width="3"')
+LINE_BLUE_FILL = LINE.replace('fill="none"', 'fill="#4A78C8"')
 SOLID = 'fill="#FFFFFF"'
 
 
@@ -86,7 +89,7 @@ def icon_shapes(kind):
 
     if kind == "frames":
         return (f'<rect x="-11" y="-8" width="19" height="14" rx="2" {LINE}/>'
-                f'<rect x="-6" y="-3" width="19" height="14" rx="2" {LINE} fill="#4A78C8"/>')
+                f'<rect x="-6" y="-3" width="19" height="14" rx="2" {LINE_BLUE_FILL}/>')
 
     if kind == "ocr":
         return f'<text x="0" y="6" text-anchor="middle" font-family="{SANS}" font-size="16" font-weight="bold" {SOLID}>Aa</text>'
@@ -129,14 +132,14 @@ def icon_shapes(kind):
 
     if kind == "search":
         return (f'<circle cx="-2" cy="-2" r="7" {LINE}/>'
-                f'<path d="M3,3 L10,10" {LINE} stroke-width="3"/>')
+                f'<path d="M3,3 L10,10" {LINE_THICK}/>')
 
     if kind == "write":
         # a four-pointed star
         return f'<path d="M0,-11 L2.5,-2.5 L11,0 L2.5,2.5 L0,11 L-2.5,2.5 L-11,0 L-2.5,-2.5 Z" {SOLID}/>'
 
     if kind == "check":
-        return f'<path d="M-9,0 L-3,6 L9,-7" {LINE} stroke-width="3"/>'
+        return f'<path d="M-9,0 L-3,6 L9,-7" {LINE_THICK}/>'
 
     if kind == "answer":
         return (f'<rect x="-11" y="-9" width="22" height="15" rx="3" {LINE}/>'

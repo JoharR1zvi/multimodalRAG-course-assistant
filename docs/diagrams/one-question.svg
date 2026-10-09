@@ -78,7 +78,7 @@
 <text x="114" y="722" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#94500B">It never writes a lecture name or a time.</text>
 <rect x="40" y="770" width="720" height="184" rx="14" fill="#FDEEDD" stroke="#DB8A33" stroke-width="2"/>
 <circle cx="78" cy="808" r="22" fill="#DB8A33"/>
-<g transform="translate(78,808) scale(1.0)"><path d="M-9,0 L-3,6 L9,-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/></g>
+<g transform="translate(78,808) scale(1.0)"><path d="M-9,0 L-3,6 L9,-7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="114" y="800" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15.5" font-weight="bold" fill="#1F2A37">Our code checks the citations and builds the sources</text>
 <circle cx="44" cy="774" r="14" fill="#94500B" stroke="#FFFFFF" stroke-width="2.5"/>
 <text x="44" y="778.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C5</text>

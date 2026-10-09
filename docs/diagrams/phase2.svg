@@ -48,7 +48,7 @@
 <text x="110" y="648" font-family="Consolas, Menlo, Courier New, monospace" font-size="11" font-weight="normal" fill="#2A4F8C">python -m src.evaluate</text>
 <rect x="36" y="676" width="288" height="96" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
 <circle cx="74" cy="724.0" r="22" fill="#4A78C8"/>
-<g transform="translate(74,724.0) scale(1.0)"><path d="M-9,0 L-3,6 L9,-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/></g>
+<g transform="translate(74,724.0) scale(1.0)"><path d="M-9,0 L-3,6 L9,-7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="110" y="704" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Check the answers</text>
 <text x="110" y="724" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Every claim is compared with its</text>
 <text x="110" y="740" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">sources.</text>
@@ -75,7 +75,7 @@
 <text x="658" y="246.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C2</text>
 <rect x="654" y="368" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
 <circle cx="692" cy="424.0" r="22" fill="#DB8A33"/>
-<g transform="translate(692,424.0) scale(1.0)"><circle cx="-2" cy="-2" r="7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3,3 L10,10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/></g>
+<g transform="translate(692,424.0) scale(1.0)"><circle cx="-2" cy="-2" r="7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3,3 L10,10" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="728" y="396" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Find the closest chunks</text>
 <text x="728" y="416" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">The 5 best matches, by meaning</text>
 <text x="728" y="432" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">and by exact words.</text>
@@ -93,7 +93,7 @@
 <text x="658" y="506.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">C4</text>
 <rect x="654" y="628" width="288" height="112" rx="14" fill="#FFFFFF" stroke="#DB8A33" stroke-width="2"/>
 <circle cx="692" cy="684.0" r="22" fill="#DB8A33"/>
-<g transform="translate(692,684.0) scale(1.0)"><path d="M-9,0 L-3,6 L9,-7" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/></g>
+<g transform="translate(692,684.0) scale(1.0)"><path d="M-9,0 L-3,6 L9,-7" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="728" y="656" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Check and show sources</text>
 <text x="728" y="676" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Our code drops invented</text>
 <text x="728" y="692" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">citations, then lists each</text>

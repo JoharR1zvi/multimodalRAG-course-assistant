@@ -38,7 +38,7 @@
 <text x="44" y="358.5" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="bold" fill="#FFFFFF" text-anchor="middle">2</text>
 <rect x="440" y="216" width="300" height="112" rx="14" fill="#FFFFFF" stroke="#4A78C8" stroke-width="2"/>
 <circle cx="478" cy="272.0" r="22" fill="#4A78C8"/>
-<g transform="translate(478,272.0) scale(1.0)"><rect x="-11" y="-8" width="19" height="14" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="-6" y="-3" width="19" height="14" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="#4A78C8"/></g>
+<g transform="translate(478,272.0) scale(1.0)"><rect x="-11" y="-8" width="19" height="14" rx="2" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="-6" y="-3" width="19" height="14" rx="2" fill="#4A78C8" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
 <text x="514" y="244" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="bold" fill="#1F2A37">Find the slide changes</text>
 <text x="514" y="264" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">Save a picture each time the</text>
 <text x="514" y="280" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12.5" font-weight="normal" fill="#4D5A6D">screen changes enough.</text>
