@@ -4,7 +4,7 @@ A multimodal RAG (retrieval-augmented generation) assistant for lecture videos. 
 
 It is a learning project. I'm building it one stage at a time and writing down why I made each choice, and I measure every change on questions I wrote down beforehand. The reasoning and the measured results are in [`docs/`](docs/).
 
-**Demo video (about 3 minutes):** [watch it on YouTube](https://youtu.be/yB0URoI4Ors). It asks questions in the web page and follows the citations to the sources and slide pictures.
+**Demo video (about 3 minutes):** [watch it on YouTube](https://youtu.be/il_bogkCk4A). It asks questions in the web page and follows the citations to the sources and slide pictures.
 
 ## How it works
 
